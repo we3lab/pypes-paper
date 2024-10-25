@@ -111,33 +111,6 @@ class SensorOptimizer:
                     z[i] = 0 
         return z
 
-    
-    def compute_bounds(self, L):
-        """Compute the upper and lower bounds for a set of sensor layouts L."""
-        X_L_lower = np.ones(len(self.edges), dtype=int) 
-        X_L_upper = np.zeros(len(self.edges), dtype=int)
-
-        for layout in L:
-            X_L_lower &= layout
-            X_L_upper |= layout 
-
-        # Upper bound
-        cost_upper = self.cost_function(X_L_upper)
-        y_upper = self.observability_function(X_L_upper)
-        obs_upper = np.dot(self.observability_weights, (1 - y_upper))
-        z_upper = self.redundancy_function(X_L_upper)
-        red_upper = np.dot(self.redundancy_weights, (1 - z_upper))
-
-        # Lower bound 
-        cost_lower = self.cost_function(X_L_lower)
-        y_lower = self.observability_function(X_L_lower)
-        obs_lower = np.dot(self.observability_weights, (1 - y_lower))
-        z_lower = self.redundancy_function(X_L_lower)
-        red_lower = np.dot(self.redundancy_weights, (1 - z_lower))
-
-        return ((cost_lower, obs_lower, red_lower), (cost_upper, obs_upper, red_upper))
-
-    def fathom(self, upper_bounds_A, lower_bounds_B):
         """Check if set B can be fathomed based on bounds comparison with set A."""
         if (upper_bounds_A[0] < lower_bounds_B[0] and
             upper_bounds_A[1] < lower_bounds_B[1] and
@@ -187,52 +160,6 @@ class SensorOptimizer:
                 pareto_front.append(current)
         return pareto_front
 
-    # TODO: Implement branch-and-bound method
-    def branch_and_bound(self):
-        """
-        Branch-and-bound method to explore sensor layout possibilities.
-        The method prunes branches that cannot lead to Pareto-optimal solutions based on bounds.
-        """
-        live_branches = [np.zeros(len(self.edges), dtype=int)]  # Start with no sensors placed (initial layout)
-        best_layouts = []
-
-        while live_branches:
-            current_layout = live_branches.pop(0)
-            
-            # Generate bounds for this layout
-            lower_bounds, upper_bounds = self.compute_bounds([current_layout])
-            
-            fathomed = False
-            # Compare against current best layouts to prune branches
-            for layout, layout_lower_bounds, layout_upper_bounds in best_layouts:
-                if self.fathom(upper_bounds, layout_lower_bounds):
-                    fathomed = True
-                    break
-
-            if fathomed:
-                continue  # Skip further exploration for this branch
-
-            # Keep track of this branch as a potential solution
-            best_layouts.append((current_layout, lower_bounds, upper_bounds))
-
-            # Branch by considering sensor placement options for undecided edges
-            undecided_edges = np.where(current_layout == 0)[0]
-            if undecided_edges.size > 0:
-                next_edge = undecided_edges[0]
-
-                # Branch 1: Place a sensor on this edge
-                new_layout_with_sensor = current_layout.copy()
-                new_layout_with_sensor[next_edge] = 1
-                live_branches.append(new_layout_with_sensor)
-
-                # Branch 2: Do not place a sensor on this edge (already implied by the current layout)
-
-        # After exploring all branches, filter for Pareto-optimal solutions
-        self.pareto_front = self.get_pareto_optimal_solutions(best_layouts)
-        return self.pareto_front
-
-    # TODO: Implement get_pareto_optimal_solutions method
-    def get_pareto_optimal_solutions(self, best_layouts):
         """
         Filter the Pareto-optimal solutions from a list of layouts with their bounds.
         Each element of best_layouts is expected to be a tuple:
