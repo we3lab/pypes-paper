@@ -6,6 +6,13 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 from mpl_toolkits.mplot3d import Axes3D
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument("--mode", "-m", type=int, default=1, help="Which WWTP to use (1, 2, 3)")
+parser.add_argument("--update", "-u", action="store_true", help="update mode")
+parser.add_argument("--log_file", "-l", type=str, help="Path to log file")
+args = parser.parse_args()
 
 class SensorOptimizer:
     def __init__(self, cost_weights, observability_weights, redundancy_weights, json_path=None):
@@ -122,34 +129,6 @@ class SensorOptimizer:
                 else:
                     z[i] = 0 
         return z
-
-    
-    def compute_bounds(self, L):
-        """Compute the upper and lower bounds for a set of sensor layouts L."""
-        X_L_lower = np.ones(self.n, dtype=int) 
-        X_L_upper = np.zeros(self.n, dtype=int)
-
-        for layout in L:
-            X_L_lower &= layout
-            X_L_upper |= layout 
-
-        # Upper bound
-        cost_upper = self.cost_function(X_L_upper)
-        y_upper = self.observability_function(X_L_upper)
-        obs_upper = np.dot(self.observability_weights, (1 - y_upper))
-        z_upper = self.redundancy_function(X_L_upper)
-        red_upper = np.dot(self.redundancy_weights, (1 - z_upper))
-
-        # Lower bound 
-        cost_lower = self.cost_function(X_L_lower)
-        y_lower = self.observability_function(X_L_lower)
-        obs_lower = np.dot(self.observability_weights, (1 - y_lower))
-        z_lower = self.redundancy_function(X_L_lower)
-        red_lower = np.dot(self.redundancy_weights, (1 - z_lower))
-
-        return ((cost_lower, obs_lower, red_lower), (cost_upper, obs_upper, red_upper))
-
-    def fathom(self, upper_bounds_A, lower_bounds_B):
         """Check if set B can be fathomed based on bounds comparison with set A."""
         if (upper_bounds_A[0] < lower_bounds_B[0] and
             upper_bounds_A[1] < lower_bounds_B[1] and
@@ -157,7 +136,10 @@ class SensorOptimizer:
             return True 
         return False
 
-    def branch_only(self):
+    def branch(self, constraints=None):
+        '''Branch and bound algorithm to find the Pareto-optimal solutions
+            constraints: a list of index that are fixed to 1
+        '''
         layouts = []
         def recursive_branching(current_layout, current_index):
             if current_index == self.n:
@@ -168,19 +150,23 @@ class SensorOptimizer:
                 redundancy = np.dot(self.redundancy_weights, (1 - z))
                 layouts.append((current_layout.copy(), cost, observability, redundancy))
                 return
+            if constraints and (current_index+1) in constraints:
+                current_layout[current_index] = 1
+                recursive_branching(current_layout, current_index + 1)
+            else:
+                current_layout[current_index] = 0
+                recursive_branching(current_layout, current_index + 1)
 
-            current_layout[current_index] = 0
-            recursive_branching(current_layout, current_index + 1)
+                current_layout[current_index] = 1
+                recursive_branching(current_layout, current_index + 1)
 
-            current_layout[current_index] = 1
-            recursive_branching(current_layout, current_index + 1)
 
-        recursive_branching(np.zeros(self.n, dtype=int), 0)
-    
-        self.pareto_front = self.get_pareto_optimal_solutions_nobound(layouts)
+        recursive_branching([0] * self.n, 0)
+
+        self.pareto_front = self.get_pareto_optimal_solutions(layouts)
         return self.pareto_front
    
-    def get_pareto_optimal_solutions_nobound(self, layouts):
+    def get_pareto_optimal_solutions(self, layouts):
         print("[INFO] Computing Pareto-optimal solutions...")
         print("[INFO] Number of layouts:", len(layouts))
 
@@ -199,6 +185,8 @@ class SensorOptimizer:
 
             if not is_dominated:
                 pareto_front.append(current)
+        # sort solutions by 1. cost, 2. observability, 3. redundancy 4. layout
+        pareto_front.sort(key=lambda x: (x[1], x[2], x[3], x[0]))
         print("[INFO] Number of Pareto-optimal solutions:", len(pareto_front))
         return pareto_front
 
@@ -206,15 +194,18 @@ class SensorOptimizer:
         nx.draw(self.G, with_labels=True, node_color='lightblue', font_weight='bold')
         plt.show()
 
-    def display_pareto_solutions(self, print_layout=False):
-        if print_layout:
-            for layout, cost, obs, red in self.pareto_front:
-                print(f"Layout: {layout}, Cost: {cost}, Observability: {obs}, Redundancy: {red}")
+    def save_pareto_solutions(self, path=None):
+        if path:
+            with open(path, 'w') as f:
+                f.write("Cost\t\tObservability\tRedundancy\tLayout\n")
+                # save in integer format
+                for layout, cost, obs, red in self.pareto_front:
+                    f.write(f"({cost:.0f}, {self.n-obs:.0f}, {self.n-red:.0f})\t{layout}\n")
         print(f"Number of Pareto-optimal solutions: {len(self.pareto_front)}")
 
     def test_objectives(self, x):
         print("x:", np.array(x), "Cost:\t\t", self.cost_function(x))
-        y = self.observability_function(x, verbose=True)
+        y = self.observability_function(x, verbose=list)
         obs = np.dot(self.observability_weights, (1 - y))
         print("y:", y, "Observability:\t", self.n-obs)
         z = self.redundancy_function(x, verbose=False)
@@ -269,7 +260,7 @@ class SensorOptimizer:
 
 
 if __name__ == '__main__':
-    WWTP_ID = 2
+    WWTP_ID = args.mode
 
     if WWTP_ID == 1:
         # WWTP1 graph
@@ -301,6 +292,12 @@ if __name__ == '__main__':
     optimizer.load_nodes(nodes)
     optimizer.load_edges(edges)
 
+    if args.update:
+        layout_43 = [3, 4, 6, 7]
+        pareto_front = optimizer.branch(constraints=layout_43)
+    else:
+        pareto_front = optimizer.branch()
+
     # layout = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
     # optimizer.test_objectives(layout)
     
@@ -309,8 +306,7 @@ if __name__ == '__main__':
     # optimizer.visualize_graph()
 
     # print(optimizer)
-    pareto_front = optimizer.branch_only()
-    optimizer.display_pareto_solutions(print_layout=False)
+    optimizer.save_pareto_solutions(path=args.log_file)
     optimizer.count_types()
     # optimizer.count_objectives((6, 7, 6))
     # optimizer.visualize_pareto_solutions()
