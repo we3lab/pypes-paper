@@ -12,6 +12,7 @@ parser = ArgumentParser()
 parser.add_argument("--mode", "-m", type=int, default=1, help="Which WWTP to use (1, 2, 3)")
 parser.add_argument("--update", "-u", action="store_true", help="update mode")
 parser.add_argument("--log_file", "-l", type=str, help="Path to log file")
+parser.add_argument("--original_log_file", "-o", type=str, help="Path to original log file")
 args = parser.parse_args()
 
 class SensorOptimizer:
@@ -203,6 +204,38 @@ class SensorOptimizer:
                     f.write(f"({cost:.0f}, {self.n-obs:.0f}, {self.n-red:.0f})\t{layout}\n")
         print(f"Number of Pareto-optimal solutions: {len(self.pareto_front)}")
 
+    def compare_pareto_solutions(self, other_pareto_front_layouts):
+        count = defaultdict(int)
+        layouts = list(''.join(map(str, layout[0])) for layout in self.pareto_front)
+        new_layouts = []
+        for i, layout in enumerate(layouts):
+            if layout not in other_pareto_front_layouts:
+                count['new'] += 1
+                new_layouts.append(i+1)
+            else:
+                count['both'] += 1
+            
+        for i, layout in enumerate(other_pareto_front_layouts):
+            if layout not in layouts:
+                count['original'] += 1
+            
+        print(count)
+        print("New layouts:", new_layouts)
+
+    def compare_pareto_solutions_wraper(self, other_path):
+        with open(other_path, 'r') as f:
+            # (4, 6, 3)	[0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0]
+            other_pareto_front_layouts = list()
+            for line in f.readlines():
+                if line.startswith("Cost"):
+                    continue
+                data = line.split("\t")
+                cost, obs, red = data[0][1:-1].split(',')
+                cost, obs, red = int(cost), int(obs), int(red)
+                layout = list(map(int, data[1].strip()[1:-1].split(',')))
+                other_pareto_front_layouts.append(''.join(map(str, layout)))
+        self.compare_pareto_solutions(other_pareto_front_layouts)
+
     def test_objectives(self, x):
         print("x:", np.array(x), "Cost:\t\t", self.cost_function(x))
         y = self.observability_function(x, verbose=list)
@@ -295,6 +328,7 @@ if __name__ == '__main__':
     if args.update:
         layout_43 = [3, 4, 6, 7]
         pareto_front = optimizer.branch(constraints=layout_43)
+        optimizer.compare_pareto_solutions_wraper(args.original_log_file)
     else:
         pareto_front = optimizer.branch()
 
