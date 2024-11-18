@@ -1,3 +1,7 @@
+from pype_schema.parse_json import JSONParser
+from pype_schema.tag import VirtualTag
+from define import RO_tag_mappping, RO_name_to_color
+
 import os
 import numpy as np
 import pandas as pd
@@ -10,7 +14,7 @@ from argparse import ArgumentParser
 parser = ArgumentParser()
 parser.add_argument('--tag_file', type=str, default='data/SB_data/data_info.csv', help='Path to the tag file')
 parser.add_argument('--data_folder', type=str, default='data/SB_data/case_study_data', help='Path to the data folder')
-parser.add_argument('--train_test_split', type=float, default=0.8, help='Train-test split ratio')
+parser.add_argument('--train_test_split', type=float, default=0.7, help='Train-test split ratio')
 args = parser.parse_args()
 
 class MeasurementData:
@@ -19,8 +23,8 @@ class MeasurementData:
         self.tag_file = tag_file
         self.data_info = pd.read_csv(self.tag_file)
         self.data = self.load_data()
-        self.train_data = None
-        self.test_data = None
+        self.training_data = None
+        self.testinv_data = None
         
     def load_data(self):
         '''
@@ -31,6 +35,14 @@ class MeasurementData:
         data_files = os.listdir(self.data_folder)
         # Load all CSV files in the data folder
         data = pd.concat([pd.read_csv(os.path.join(self.data_folder, file)) for file in data_files])
+        # remove "To date" column
+        data.drop(columns=['To date'], inplace=True)
+        # reset index and column names
+        data.reset_index(drop=True, inplace=True)
+        data.columns = [RO_tag_mappping[col] for col in data.columns]
+        # remove nan
+        data.dropna(how='all', inplace=True)
+        print(f"Data loaded from {self.data_folder} with shape: {data.shape}")
         return data
     
     def print_data(self):
@@ -58,7 +70,11 @@ class MeasurementData:
         plt.grid(True)
         plt.show()
 
-    def preprocess_data(self, columns=None, fill_missing='ffill', scale_data=True, remove_outliers=True, train_test_split=None):
+    def filter_data(self):
+        # use intake flowrate > 500 to filter data
+        self.data = self.data[self.data['intake flowrate'] > 500]
+
+    def preprocess_data(self, columns=None, fill_missing='ffill', scale_data=True, remove_outliers=True, train_test_split=None, num=None):
         '''
         Preprocess the data with the following options:
         - fill_missing: Method to handle missing values ('ffill', 'bfill', or None)
@@ -67,8 +83,9 @@ class MeasurementData:
         - columns: Specify which columns to preprocess (default is all numeric columns)
         - train_test_split: Split the data into training and test sets (e.g., 0.8 for 80% training data
         '''
+        if num:
+            self.data = self.data[:num]
         
-        # Step 1: Filter the columns
         if columns:
             self.data = self.data[columns]
         else:
@@ -87,22 +104,24 @@ class MeasurementData:
 
         if train_test_split:
             m = len(self.data)
-            self.train_data = self.data[:int(m * train_test_split)]
-            self.test_data = self.data[int(m * train_test_split):]
+            self.training_data = self.data[:int(m * train_test_split)]
+            self.testing_data = self.data[int(m * train_test_split):]
 
         # Step 3: Remove outliers using the IQR method in train data
         if remove_outliers:
-            Q1 = self.train_data.quantile(0.25)
-            Q3 = self.train_data.quantile(0.75)
+            Q1 = self.training_data.quantile(0.25)
+            Q3 = self.training_data.quantile(0.75)
             IQR = Q3 - Q1
-            self.train_data = self.train_data[~((self.train_data < (Q1 - 1.5 * IQR)) | (self.train_data > (Q3 + 1.5 * IQR))).any(axis=1)]
+            self.training_data = self.training_data[~((self.training_data < (Q1 - 1.5 * IQR)) | (self.training_data > (Q3 + 1.5 * IQR))).any(axis=1)]
         
         # Step 4: Standardize the data (mean=0, variance=1)
         if scale_data:
             scaler = StandardScaler()
-            self.train_data = pd.DataFrame(scaler.fit_transform(self.train_data), columns=self.train_data.columns)
-            if self.test_data is not None:
-                self.test_data = pd.DataFrame(scaler.transform(self.test_data), columns=self.test_data.columns)
+            self.training_data = pd.DataFrame(scaler.fit_transform(self.training_data), columns=self.training_data.columns)
+            if self.testing_data is not None:
+                self.testing_data = pd.DataFrame(scaler.transform(self.testing_data), columns=self.testing_data.columns)
+            print("training_data shape: ", self.training_data.shape)
+            print("testing_data shape: ", self.testing_data.shape)
         
         print("Preprocessing complete.")
         return self.data   
@@ -117,29 +136,28 @@ class MeasurementData:
         plt.suptitle(f'Process Data for {data_type}')
         plt.show()  
     
-    def plot_testing_data(self):
+    def plot_data(self):
         '''
         Plot the testing data in a vertical stack with same x axis
         '''
         plt.figure(figsize=(12, 8))
-        num_of_columns = len(self.test_data.columns)
         axes = []
-        for i, col in enumerate(self.test_data.columns):
+        plot_data = self.data.copy()
+        plot_data = plot_data[RO_tag_mappping.keys()]
+        num_of_columns = len(plot_data.columns)
+        for i, col in enumerate(plot_data):
             ax = plt.subplot(num_of_columns, 1, i+1)
-            ax.plot(self.test_data[col], label=col)
+            ax.plot(plot_data[col], label=col)
             if i > 0:
                 ax.sharex(axes[0])
             ax.legend()
-            ax.set_ylabel(col)
             axes.append(ax)
-
-        plt.suptitle('Testing Data')
+        # plt.suptitle('Testing Data')
+        plt.tight_layout()
         plt.show()
 
-
-
 class FaultDetectionSystem:
-    def __init__(self, training_data, n_components=3, significance_level=0.01):
+    def __init__(self, json_path, dataset, n_components=2, significance_level=0.01):
         """
         Initialize with training data to build a PCA model.
 
@@ -148,35 +166,83 @@ class FaultDetectionSystem:
         - n_components: Number of principal components to retain
         - significance_level: Significance level for threshold calculation (e.g., 0.01 for 99% confidence)
         """
-        self.training_data = training_data
+        self.load_network(json_path)
+        self.dataset = dataset
         self.n_components = n_components
         self.significance_level = significance_level
         self.pca = None
         self.T2_threshold = None
         self.Q_threshold = None
+        self.virtual_tags = []
+
         self.fit_pca_model()
+        self.construct_virtual_tags()
+
+    def load_network(self, json_path):
+        parser = JSONParser(json_path)
+        self.network = parser.initialize_network()
+        print(f'Loaded network from {json_path}')
+
+    def pca_scree_plot(self, data):
+        """Plot the scree plot to visualize the explained variance of each principal component."""
+        pca = PCA(n_components=data.shape[1])
+        pca.fit(data)
+        explained_variance = pca.explained_variance_ratio_
+        plt.figure(figsize=(8, 5))
+        plt.plot(np.arange(1, len(explained_variance) + 1), explained_variance, marker='o')
+        plt.xlabel('Principal Component')
+        plt.ylabel('Explained Variance')
+        plt.title('Scree Plot')
+        plt.grid()
+        plt.show()
 
     def fit_pca_model(self):
         """Fit the PCA model to the training data and calculate thresholds for T² and Q statistics."""
         print(f'Fitting PCA model with {self.n_components} components...')
         # Scale and fit PCA model
+        # self.pca_scree_plot(self.training_data)
         self.pca = PCA(n_components=self.n_components)
-        self.scores = self.pca.fit_transform(self.training_data)
+        self.scores = self.pca.fit_transform(self.dataset.training_data)
 
         # Calculate T² threshold
         eigenvalues = self.pca.explained_variance_
         a = self.n_components
-        m = self.training_data.shape[0]
+        m = self.dataset.training_data.shape[0]
         self.T2_threshold = (a*(m-1)/(m-a)) * f.ppf(1 - self.significance_level, dfn=a, dfd=m - a)
         print(f'T² Threshold: {self.T2_threshold}')
 
         # Calculate Q threshold based on the residual sum of squares
-        residuals = self.training_data - self.pca.inverse_transform(self.scores)
+        residuals = self.dataset.training_data - self.pca.inverse_transform(self.scores)
         residual_var = np.var(residuals, axis=0).sum()
         self.Q_threshold = residual_var * f.ppf(1 - self.significance_level, dfn=1, dfd=(m - a))
         print(f'Q Threshold: {self.Q_threshold}')
 
-    def detect_faults(self, new_data):
+    def plot_pc(self):
+        """
+            Plot a biplot of the first two principal components.
+            1. vector
+            2. data points scaled by the variance
+        """
+        plt.figure(figsize=(8, 8))
+        
+        # biplot
+        ax1 = plt.subplot(1, 1, 1)
+        scaling_factor = 5
+        ax1.scatter(self.scores[:, 0]/scaling_factor, self.scores[:, 1]/scaling_factor, c='yellow', alpha=0.3, s=2)
+        ax1.set_xlabel('PC1')
+        ax1.set_ylabel('PC2')
+
+        # Plot variable vectors
+        for i, (pc1, pc2) in enumerate(zip(self.pca.components_[0], self.pca.components_[1])):
+            ax1.arrow(0, 0, pc1, pc2, color=RO_name_to_color[self.dataset.training_data.columns[i]], alpha=0.5)
+            ax1.text(pc1, pc2, self.dataset.training_data.columns[i], color=RO_name_to_color[self.dataset.training_data.columns[i]], fontsize=12)
+        ax1.set_title('PCA Biplot')
+        ax1.grid()
+
+        plt.tight_layout()
+        plt.show()
+
+    def detect_faults(self):
         """
         Detect faults by computing T² and Q statistics on new data.
 
@@ -187,6 +253,7 @@ class FaultDetectionSystem:
         - DataFrame with T² and Q statistics for each observation
         """
         # Project new data onto PCA model and calculate scores
+        new_data = self.dataset.testing_data
         scores_new = self.pca.transform(new_data)
         T2_stats = np.sum((scores_new / np.sqrt(self.pca.explained_variance_))**2, axis=1)
         residuals = new_data - self.pca.inverse_transform(scores_new)
@@ -219,14 +286,57 @@ class FaultDetectionSystem:
         plt.tight_layout()
         plt.show()
 
+    def construct_virtual_tags(self):
+        """
+        Construct VirtualTag objects for the first 2 Principal Components (PCs).
+        """
+        # Get PCA coefficients (loadings) and sensor tags
+        coefficients = self.pca.components_  # Shape: (num_pcs, num_features)
+        tags = self.dataset.data_info['Tag'].tolist()  # List of sensor tags
+
+        for pc_index in range(min(2, self.n_components)):
+            # Get the coefficients for the current principal component
+            pc_coeffs = coefficients[pc_index]
+            
+            # Construct the lambda operation string, use the varible name x_1, x_2, ... for each sensor tag
+            operations = 'lambda ' + ', '.join("x_{} ".format(i+1) for i in range(len(tags))) + ': ' + ' + '.join(
+                [f'({coef:.5f} * x_{i+1})' for i, (coef, tag) in enumerate(zip(pc_coeffs, tags)) if abs(coef) > 1e-5]
+            )
+            
+            # Create a VirtualTag for the current principal component
+            virtual_tag = VirtualTag(
+                id=f'PC_{pc_index+1}',
+                tags=[self.network.get_tag(tag) for tag in tags],
+                operations=operations,
+                tag_type='PCA_Component',
+                parent_id='PC_Domain'
+            )
+            
+            self.virtual_tags.append(virtual_tag)
+            print(f'Created VirtualTag for PC_{pc_index+1}: {operations}')
+
+
 if __name__ == '__main__':
     dataset = MeasurementData(tag_file=args.tag_file, data_folder=args.data_folder)
-    dataset.print_data()
-    dataset.print_format()
+    # dataset.print_data()
+    # dataset.print_format()
+    dataset.filter_data()
+    # dataset.plot_data()
 
-    dataset.preprocess_data(fill_missing='mean', scale_data=True, remove_outliers=True, train_test_split=args.train_test_split)
-    dataset.plot_testing_data()
+    dataset.preprocess_data(fill_missing='mean', 
+                            scale_data=True, 
+                            remove_outliers=True, 
+                            train_test_split=args.train_test_split, 
+                            # num=50000
+                            )
 
-    fd_system = FaultDetectionSystem(dataset.train_data, n_components=3, significance_level=0.01)
-    stats_df = fd_system.detect_faults(dataset.test_data)
+    fd_system = FaultDetectionSystem('json/Desal.json',
+                                     dataset, 
+                                     n_components=2, 
+                                     significance_level=0.01)
+    stats_df = fd_system.detect_faults()
+    fd_system.plot_pc()
     fd_system.plot_fault_detection(stats_df)
+
+    for vt in fd_system.virtual_tags:
+        print(vt)

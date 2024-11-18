@@ -26,3 +26,24 @@ color_map = {
     "FatOilGrease": "orange",
     "FoodWaste": "orange",
 }
+
+RO_tag_mappping = {
+    "From date": "timestamp",
+    "AIT_400_001A_P.PV": "intake conductivity", 
+    "FIT_400_001A_P.PV": "wastewater flowrate",
+    "FIT_400_002A_P.PV": "intake flowrate",
+    "P_400_002A_P.RPM_MV": "HP Pump speed",
+    "PT_400_002A_P.PV": "HP Pump pressure",
+    "P_400_001A_P.RPM_MV": "Circulation Pump speed",
+    "PDIT_400_002A_P.PV": "Circulation Pump pressure",
+}
+
+RO_name_to_color = {
+    "intake conductivity": "red",
+    "wastewater flowrate": "saddlebrown",
+    "intake flowrate": "saddlebrown",
+    "HP Pump speed": "green",
+    "HP Pump pressure": "black",
+    "Circulation Pump speed": "green",
+    "Circulation Pump pressure": "black",
+}

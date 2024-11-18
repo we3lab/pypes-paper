@@ -38,7 +38,18 @@
       "avg": null,
       "units": "MGD"
     },
-    "tags": {}
+    "tags": {
+      "P_400_002A_P.RPM_MV": {
+        "type": "Speed",
+        "units": "RPM", 
+        "contents": "Brine"
+      },
+      "PT_400_002A_P.PV": {
+        "type": "Pressure",
+        "units": "PSI", 
+        "contents": "Brine"
+      }
+    }
   },
   "SWRO": {
     "type": "ROMembrane",
@@ -80,6 +91,16 @@
       "units": "MGD"
     },
     "tags": {
+      "P_400_001A_P.RPM_MV": {
+        "type": "Speed",
+        "units": "RPM", 
+        "contents": "Brine"
+      },
+      "PDIT_400_002A_P.PV": {
+        "type": "Pressure",
+        "units": "PSI",
+        "contents": "Brine"
+      }
     }
   },
   "WasteWaterSump": {
@@ -102,7 +123,18 @@
     "contents": "Brine",
     "source": "Input",
     "destination": "HPPump",
-    "tags": {}
+    "tags": {
+      "AIT_400_001A_P.PV": {
+        "type": "Conductivity",
+        "units": "uS/cm",
+        "contents": "Brine"
+      }, 
+      "FIT_400_002A_P.PV": {
+        "type": "Flow",
+        "units": "GPM",
+        "contents": "Brine"
+      }
+    }
   },
   "InputToERI": {
     "type": "Pipe",
@@ -130,7 +162,13 @@
     "contents": "Brine",
     "source": "ERI",
     "destination": "WasteWaterSump",
-    "tags": {}
+    "tags": {
+      "FIT_400_001A_P.PV": {
+        "type": "Flow",
+        "units": "GPM",
+        "contents": "Brine"
+      }
+    }
   },
   "SWROToERI": {
     "type": "Pipe",
