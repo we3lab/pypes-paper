@@ -29,21 +29,21 @@ color_map = {
 
 RO_tag_mappping = {
     "From date": "timestamp",
-    "AIT_400_001A_P.PV": "intake conductivity", 
-    "FIT_400_001A_P.PV": "wastewater flowrate",
-    "FIT_400_002A_P.PV": "intake flowrate",
-    "P_400_002A_P.RPM_MV": "HP Pump speed",
-    "PT_400_002A_P.PV": "HP Pump pressure",
-    "P_400_001A_P.RPM_MV": "Circulation Pump speed",
-    "PDIT_400_002A_P.PV": "Circulation Pump pressure",
+    "AIT_400_001A_P.PV": "intake conductivity (uS/cm)", 
+    "FIT_400_001A_P.PV": "wastewater flowrate (GPM)",
+    "FIT_400_002A_P.PV": "intake flowrate (GPM)",
+    "P_400_002A_P.RPM_MV": "HP Pump speed (RPM)",
+    "PT_400_002A_P.PV": "HP Pump pressure (PSI)",
+    "P_400_001A_P.RPM_MV": "Circulation Pump speed (RPM)",
+    "PDIT_400_002A_P.PV": "Circulation Pump pressure (PSI)",
 }
 
 RO_name_to_color = {
-    "intake conductivity": "red",
-    "wastewater flowrate": "saddlebrown",
-    "intake flowrate": "saddlebrown",
-    "HP Pump speed": "green",
-    "HP Pump pressure": "black",
-    "Circulation Pump speed": "green",
-    "Circulation Pump pressure": "black",
+    "intake conductivity (uS/cm)": "red",
+    "wastewater flowrate (GPM)": "saddlebrown",
+    "intake flowrate (GPM)": "saddlebrown",
+    "HP Pump speed (RPM)": "green",
+    "HP Pump pressure (PSI)": "black",
+    "Circulation Pump speed (RPM)": "green",
+    "Circulation Pump pressure (PSI)": "black",
 }
