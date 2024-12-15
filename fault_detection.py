@@ -1,6 +1,6 @@
 from pype_schema.parse_json import JSONParser
 from pype_schema.tag import VirtualTag
-from define import RO_tag_mappping, RO_name_to_color
+from define import RO_tag_mappping, RO_name_to_color, RO_item_to_color
 
 import os
 import numpy as np
@@ -14,6 +14,12 @@ import warnings
 from tqdm import tqdm
 
 warnings.simplefilter(action='ignore')
+plt.rcParams['figure.dpi'] = 300
+plt.rc('legend', fontsize=14) # using a size in points
+plt.rc('axes', labelsize=14)
+plt.rc('xtick', labelsize=14)
+plt.rc('ytick', labelsize=14)
+plt.rc('figure', titlesize=18)
 
 parser = ArgumentParser()
 parser.add_argument('--tag_file', type=str, default='data/SB_data/data_info.csv', help='Path to the tag file')
@@ -81,13 +87,18 @@ class MeasurementData:
 
     def filter_data(self, data, mode=1):
         # use intake flowrate > 500 to filter data
+        # also return the index of the filtered data
         if mode == 0:
-            data = data[self.data['intake flowrate (GPM)'] <= 500]
+            data = data[self.data['intake flowrate (GPM)'] < 500]
             print(f"Filtered data with intake flowrate <= 500, new shape: {data.shape}")
         elif mode == 1:
-            data = data[self.data['intake flowrate (GPM)'] > 500]
-            print(f"Filtered data with intake flowrate > 500, new shape: {data.shape}")
-        return data
+            data_cp = data.copy()
+            data_cp = data_cp[data_cp['intake flowrate (GPM)'] < 500]
+            index = data_cp.index
+            data_cp = data.copy()
+            data_cp = data_cp[data_cp['intake flowrate (GPM)'] >= 500]
+            print(f"Filtered data with intake flowrate > 500, new shape: {data_cp.shape}")
+        return data_cp, index.tolist()
 
     def detect_and_clean_outliers(self, time_series, delta=0.3, K=1, bandwidth=13):
         """
@@ -167,32 +178,39 @@ class MeasurementData:
             m = len(processed_data)
             self.training_data = processed_data[:int(m * self.train_test_split)]
             self.testing_data = processed_data[int(m * self.train_test_split):]
+            # reset index for testing data start from 0
+            self.testing_data.reset_index(drop=True, inplace=True)
         
         # Filter data
         if filter_data != -1:
-            self.training_data = self.filter_data(self.training_data, filter_data)
-            self.testing_data = self.filter_data(self.testing_data, filter_data)
+            # self.training_data = self.filter_data(self.training_data, filter_data)
+            self.training_data_filtered, self.train_index = self.filter_data(self.training_data, filter_data)
+            # self.training_data = self.filter_data(self.training_data, filter_data)
+            self.testing_data_filtered, self.test_index = self.filter_data(self.testing_data, filter_data)
 
         # Remove outliers using the IQR method in train data
         if remove_outliers==1:
-            for col in self.training_data.columns:
+            for col in self.training_data_filtered.columns:
                 if col == 'timestamp':
                     continue
-                Q1 = self.training_data[col].quantile(0.25)
-                Q3 = self.training_data[col].quantile(0.75)
+                Q1 = self.training_data_filtered[col].quantile(0.25)
+                Q3 = self.training_data_filtered[col].quantile(0.75)
                 IQR = Q3 - Q1
-                self.training_data = self.training_data[(self.training_data[col] >= Q1 - 1.5 * IQR) & (self.training_data[col] <= Q3 + 1.5 * IQR)]
+                self.training_data_filtered = self.training_data_filtered[(self.training_data_filtered[col] >= Q1 - 1.5 * IQR) & (self.training_data_filtered[col] <= Q3 + 1.5 * IQR)]
         elif remove_outliers==0:
-            for col in self.training_data.columns:
+            for col in self.training_data_filtered.columns:
                 if col == 'timestamp':
                     continue
-                self.training_data[col] = self.detect_and_clean_outliers(self.training_data[col])
+                self.training_data_filtered[col] = self.detect_and_clean_outliers(self.training_data_filtered[col])
         
         # scale the data
-        self.training_data = self.auto_scale(self.training_data)
-        self.testing_data = self.auto_scale(self.testing_data)
+        # self.training_data = self.auto_scale(self.training_data)
+        # self.testing_data = self.auto_scale(self.testing_data)
+        self.training_data_filtered = self.auto_scale(self.training_data_filtered)
+        self.testing_data_filtered = self.auto_scale(self.testing_data_filtered)
 
         print(f'Preprocessed data with shape: {processed_data.shape}, train-test split: {self.train_test_split}')
+        print(f'Filtered data with shape: {self.training_data_filtered.shape, self.testing_data_filtered.shape}')
 
     def auto_scale(self, data):
         '''
@@ -216,7 +234,7 @@ class MeasurementData:
         plt.suptitle(f'Process Data for {data_type}')
         plt.show()  
     
-    def plot_data(self, save=None, mode='all', shade=True):
+    def plot_data(self, save=None, mode='test', shade=True, combined=True):
         '''
         Plot the testing data in a vertical stack with same x axis
         -  using the "timestamp" column as the x-axis
@@ -224,61 +242,118 @@ class MeasurementData:
         - set all y min to 0, max to the max value + 10% of the max value
         - add grid
         - shade the off hours (flowrate < 500)
+
         save: path to save the plot
+        mode: 'all', 'train', 'test'
+        combined: True, False, combine columns with same unit in one plot
         '''
-        plt.figure(figsize=(12, 8))
-        axes = []
         if mode == 'all':
             plot_data = self.data.copy()
         elif mode == 'train':
-            plot_data = self.data[:int(len(self.data) * self.train_test_split)]
+            plot_data = self.training_data.copy()
         elif mode == 'test':
-            plot_data = self.data[int(len(self.data) * self.train_test_split):]
-            plot_data.reset_index(drop=True, inplace=True)
+            plot_data = self.testing_data.copy()
+            # plot_data.reset_index(drop=True, inplace=True)
 
+        print(f'Plotting {mode} data with shape: {plot_data.shape}')
         num_of_columns = len(plot_data.columns)
         timestamps = plot_data['timestamp']
         plot_data.drop(columns=['timestamp'], inplace=True)
 
-        # collect the off hours in a list of pairs (start, end)
+        # collect the off hours in a list of pairs (start, end) in self.testing_data
         off_hours = []
         start = None
-        for i, row in plot_data.iterrows():
-            if row['intake flowrate (GPM)'] < 500:
-                if not start:
-                    start = i
-            else:
-                if start:
-                    off_hours.append((start, i))
-                    start = None
+        end = self.test_index[0]
+        for i in self.test_index:
+            if not start:
+                start = i
+                end = i
+                continue
+            if (i-end) > 1:
+                off_hours.append((start, end+1))
+                start = i
+            end = i
+        off_hours.append((start, end+1))
+        self.off_hours = off_hours
 
-        for i, col in enumerate(plot_data):
-            ax = plt.subplot(num_of_columns, 1, i+1)
-            ax.plot(plot_data[col])
+        if combined:
+            fig, axs = plt.subplots(4, 1, figsize=(12, 6), sharex=True, gridspec_kw={'hspace': 0.2})
+            # intake flowrate (GPM) and wastewater flowrate (GPM)
+            axs[0].plot(plot_data['intake flowrate (GPM)'], label='Intake', color=RO_item_to_color['intake'], zorder=2)
+            axs[0].plot(plot_data['wastewater flowrate (GPM)'], label='Wastewater', color=RO_item_to_color['wastewater'], zorder=2)
             if shade:
-                for start, end in off_hours:
-                    ax.axvspan(start, end, color='gray', alpha=0.3, label='Off Hours')
-            if i > 0:
-                ax.sharex(axes[0])
-            else:
-                handles, labels = ax.get_legend_handles_labels()
-                label_to_handle = dict(zip(labels, handles))
-                ax.legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(1, 1), loc='upper left')
+                for i, (start, end) in enumerate(off_hours):
+                    axs[0].axvspan(start, end, color='gray', alpha=0.3, zorder=2)
+            axs[0].set_ylabel('Flowrate\n(GPM)')
+            axs[0].set_ylim(bottom=0, top=plot_data['wastewater flowrate (GPM)'].max() * 1.1)
+            
+            # intake conductivity (uS/cm)
+            axs[1].plot(plot_data['intake conductivity (uS/cm)'], label='Intake', color=RO_item_to_color['intake'], zorder=1)
+            if shade:
+                for i, (start, end) in enumerate(off_hours):
+                    axs[1].axvspan(start, end, color='gray', alpha=0.3)
+            axs[1].set_ylabel('Conductivity\n(uS/cm)')
+            axs[1].set_ylim(bottom=0, top=plot_data['intake conductivity (uS/cm)'].max() * 1.1)
 
-            ax.set_ylabel(col.replace(' ', '\n'))
-            ax.set_ylim(bottom=0, top=plot_data[col].max() * 1.1)
-            # add a vertical dashed line to separate training and testing data
-            if mode=='all':
-                n_train = int(len(plot_data) * self.train_test_split)
-                ax.axvline(x=n_train, color='r', linestyle='--')
-            axes.append(ax)
+            # HP Pump speed (RPM) and Circulation Pump speed (RPM)
+            axs[2].plot(plot_data['HP Pump speed (RPM)'], label='HP Pump', color=RO_item_to_color['HP Pump'])
+            axs[2].plot(plot_data['Circulation Pump speed (RPM)'], label='Circulation Pump', color=RO_item_to_color['Circulation Pump'])
+            if shade:
+                for i, (start, end) in enumerate(off_hours):
+                    axs[2].axvspan(start, end, color='gray', alpha=0.3)
+            axs[2].set_ylabel('Pump\nSpeed\n(RPM)')
+            axs[2].set_ylim(bottom=0, top=plot_data['HP Pump speed (RPM)'].max() * 1.1)
+
+            # HP Pump pressure (PSI) and Circulation Pump pressure (PSI)
+            axs[3].plot(plot_data['HP Pump pressure (PSI)'], label='HP Pump', color=RO_item_to_color['HP Pump'])
+            axs[3].plot(plot_data['Circulation Pump pressure (PSI)'], label='Circulation Pump', color=RO_item_to_color['Circulation Pump'])
+            if shade:
+                for i, (start, end) in enumerate(off_hours):
+                    if i == 0:
+                        axs[3].axvspan(start, end, color='gray', alpha=0.3, label='Off Hours')
+                    else:
+                        axs[3].axvspan(start, end, color='gray', alpha=0.3)
+            axs[3].set_ylabel('Pump\nPressure\n(PSI)')
+            axs[3].set_ylim(bottom=0, top=plot_data['HP Pump pressure (PSI)'].max() * 1.1)
+
+            handles, labels = [], []
+            for i in range(4):
+                h, l = axs[i].get_legend_handles_labels()
+                handles.extend(h)
+                labels.extend(l)
+            label_to_handle = dict(zip(labels, handles))
+            axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.85, 1.5), loc='upper left')
+            
+        else:
+            plt.figure(figsize=(12, 8))
+            axes = []
+            for i, col in enumerate(plot_data):
+                ax = plt.subplot(num_of_columns, 1, i+1)
+                ax.plot(plot_data[col])
+                if shade:
+                    for start, end in off_hours:
+                        ax.axvspan(start, end, color='gray', alpha=0.3, label='Off Hours')
+                if i > 0:
+                    ax.sharex(axes[0])
+                else:
+                    handles, labels = ax.get_legend_handles_labels()
+                    label_to_handle = dict(zip(labels, handles))
+                    ax.legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(1, 1), loc='upper left')
+
+                ax.set_ylabel(col.replace(' ', '\n'))
+                ax.set_ylim(bottom=0, top=plot_data[col].max() * 1.1)
+                # add a vertical dashed line to separate training and testing data
+                if mode=='all':
+                    n_train = int(len(plot_data) * self.train_test_split)
+                    ax.axvline(x=n_train, color='r', linestyle='--')
+                axes.append(ax)
 
         # use the timestamp as x axis following the format MM/DD
         labels = timestamps.apply(lambda x: x[5:10])
         positions = range(0, len(labels)+1, len(labels)//10)
         plt.xticks(ticks=positions, labels=labels[::len(labels)//10])
         plt.xlabel('Timestamp')
-        plt.suptitle('Measurement Data')
+        plt.suptitle(mode.capitalize() + ' Data')
         
         plt.tight_layout()
 
@@ -333,7 +408,7 @@ class FaultDetectionSystem:
         # Scale and fit PCA model
         # self.pca_scree_plot(self.training_data)
         self.pca = PCA(n_components=self.n_components)
-        train_data = self.dataset.training_data.drop(columns=['timestamp'])
+        train_data = self.dataset.training_data_filtered.drop(columns=['timestamp'])
         self.scores = self.pca.fit_transform(train_data)
 
         # Calculate T² threshold
@@ -393,7 +468,8 @@ class FaultDetectionSystem:
         - DataFrame with T² and Q statistics for each observation
         """
         # Project new data onto PCA model and calculate scores
-        new_data = self.dataset.testing_data.drop(columns=['timestamp'])
+        timestamp = self.dataset.testing_data_filtered['timestamp']
+        new_data = self.dataset.testing_data_filtered.drop(columns=['timestamp'])
         if virtual_tags:
             scores_new = []
             for vt in self.virtual_tags:
@@ -408,69 +484,60 @@ class FaultDetectionSystem:
         residuals = new_data - self.pca.inverse_transform(scores_new)
         Q_stats = np.sum(residuals**2, axis=1)
 
-        return pd.DataFrame({'T2': T2_stats, 'Q': Q_stats, 'T2_threshold': self.T2_threshold, 'Q_threshold': self.Q_threshold})
+        T2_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
+        Q_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
+
+        # insert 0 in the index not in the test_index
+        c = 0
+        for i in self.dataset.testing_data.index:
+            if i not in self.dataset.test_index:
+                T2_stats_full_length[i] = T2_stats[c]
+                Q_stats_full_length[i] = Q_stats[i]
+                c += 1
+
+        return pd.DataFrame({'T2': T2_stats_full_length, 'Q': Q_stats_full_length, 'T2_threshold': self.T2_threshold, 'Q_threshold': self.Q_threshold})
+        # return pd.DataFrame({'T2': T2_stats, 'Q': Q_stats, 'T2_threshold': self.T2_threshold, 'Q_threshold': self.Q_threshold})
 
     def plot_fault_detection(self, stats_df, save=None):
         """Plot T² and Q statistics to visualize faults."""
-        plt.figure(figsize=(10, 10))
         # reset index for plotting
         stats_df.reset_index(drop=True, inplace=True)
-
-        # use the timestamp as x axis following the format MM/DD
-        labels = self.dataset.testing_data['timestamp'].apply(lambda x: x[5:10])
-        positions = range(0, len(labels), len(labels)//10+1)
-
+        
+        fig, axs = plt.subplots(2, 1, figsize=(12, 5), sharex=True, gridspec_kw={'hspace': 0.2})
         # Plot T² statistics
-        plt.subplot(4, 1, 1)
-        plt.plot(stats_df['T2'], label='T²')
-        # plt.axhline(y=self.T2_threshold, color='r', linestyle='--', label='T² Threshold')
-        plt.axhline(y=self.T2_threshold_1, color='r', linestyle='--', label='T² Threshold α=0.01')
-        # plt.axhline(y=self.T2_threshold_5, color='orange', linestyle='--', label='T² Threshold α=0.05')
-        plt.xlabel('time')
-        plt.xticks(ticks=positions, labels=labels[::len(labels)//10+1])
-        plt.ylabel('T² Statistic')
-        plt.legend(loc='upper right')
-        plt.title('T² Fault Detection')
-
-        # Plot T² statistics with max y limit
-        plt.subplot(4, 1, 2)
-        plt.plot(stats_df['T2'], label='T²')
-        # plt.axhline(y=self.T2_threshold, color='r', linestyle='--', label='T² Threshold')
-        plt.axhline(y=self.T2_threshold_1, color='r', linestyle='--', label='T² Threshold α=0.01')
-        plt.axhline(y=self.T2_threshold_5, color='orange', linestyle='--', label='T² Threshold α=0.05')
-        plt.xlabel('time')
-        plt.xticks(ticks=positions, labels=labels[::len(labels)//10+1])
-        plt.ylabel('T² Statistic')
-        plt.ylim(0, self.T2_threshold*2)
-        plt.legend(loc='upper right')
-        plt.title('T² Fault Detection (Zoomed)')
+        axs[0].plot(stats_df['T2'])
+        for i, (start, end) in enumerate(self.dataset.off_hours):
+            axs[0].axvspan(start, end, color='gray', alpha=0.3, zorder=2)
+        axs[0].set_ylim(0, 25)
+        axs[0].axhline(y=self.T2_threshold_1, color='r', linestyle='--', label='α=0.01')
+        axs[0].axhline(y=self.T2_threshold_5, color='orange', linestyle='--', label='α=0.05')
+        axs[0].set_ylabel('T² Statistic')
 
         # Plot Q statistics
-        plt.subplot(4, 1, 3)
-        plt.plot(stats_df['Q'], label='Q')
-        # plt.axhline(y=self.Q_threshold, color='r', linestyle='--', label='Q Threshold')
-        plt.axhline(y=self.Q_threshold_1, color='r', linestyle='--', label='Q Threshold α=0.01')
-        # plt.axhline(y=self.Q_threshold_5, color='orange', linestyle='--', label='Q Threshold α=0.05')
-        plt.xlabel('time')
-        plt.xticks(ticks=positions, labels=labels[::len(labels)//10+1])
-        plt.ylabel('Q Statistic')
-        plt.legend(loc='upper right')
-        plt.title('Q Fault Detection')
+        axs[1].plot(stats_df['Q'])
+        for i, (start, end) in enumerate(self.dataset.off_hours):
+            axs[1].axvspan(start, end, color='gray', alpha=0.3, zorder=2)
+        axs[1].set_ylim(0, 40)
+        axs[1].axhline(y=self.Q_threshold_1, color='r', linestyle='--', label='α=0.01')
+        axs[1].axhline(y=self.Q_threshold_5, color='orange', linestyle='--', label='α=0.05')
+        axs[1].set_ylabel('Q Statistic')
 
-        # Plot Q statistics with max y limit
-        plt.subplot(4, 1, 4)
-        plt.plot(stats_df['Q'], label='Q')
-        # plt.axhline(y=self.Q_threshold, color='r', linestyle='--', label='Q Threshold')
-        plt.axhline(y=self.Q_threshold_1, color='r', linestyle='--', label='Q Threshold α=0.01')
-        plt.axhline(y=self.Q_threshold_5, color='orange', linestyle='--', label='Q Threshold α=0.05')
-        plt.xlabel('time')
-        plt.xticks(ticks=positions, labels=labels[::len(labels)//10+1])
-        plt.ylabel('Q Statistic')
-        plt.ylim(0, self.Q_threshold*2)
-        plt.legend(loc='upper right')
-        plt.title('Q Fault Detection (Zoomed)')
+        handles, labels = [], []
+        for i in range(2): 
+            h, l = axs[i].get_legend_handles_labels()
+            handles.extend(h)
+            labels.extend(l)
+        label_to_handle = dict(zip(labels, handles))
+        axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.85, 1), loc='upper left')
+        
+        labels = self.dataset.testing_data['timestamp'].apply(lambda x: x[5:10])
+        positions = range(0, len(labels)+1, len(labels)//10)
+        plt.xticks(ticks=positions, labels=labels[::len(labels)//10])
+        plt.xlabel('Timestamp')
 
+        plt.suptitle('Fault Detection')
         plt.tight_layout()
+
         if save:
             plt.savefig(save)
         else:
@@ -478,7 +545,7 @@ class FaultDetectionSystem:
 
     def construct_virtual_tags(self):
         """
-        Construct VirtualTag objects for the first 2 Principal Components (PCs).
+        Construct VirtualTag objects for the first 2 Principal Components (PCs) and T² and Q statistics.
         """
         # Get PCA coefficients (loadings) and sensor tags
         coefficients = self.pca.components_  # Shape: (num_pcs, num_features)
@@ -505,6 +572,36 @@ class FaultDetectionSystem:
             self.virtual_tags.append(virtual_tag)
             print(f'Created VirtualTag for PC_{pc_index+1}: {operations}')
 
+        # Construct VirtualTag for T² statistic
+        # scores_new = [PC_1, PC_2]
+        # T2_stats = np.sum((scores_new / np.sqrt(self.pca.explained_variance_))**2, axis=1)
+        # operations = 'lambda pc_1, pc_2: np.sum((np.array([pc_1, pc_2]) / np.sqrt({self.pca.explained_variance_}))**2, axis=1)'
+        # virtual_tag = VirtualTag(
+        #     id='T2',
+        #     tags=['PC_1', 'PC_2'],
+        #     operations=operations,
+        #     tag_type='T2_Statistic',
+        #     parent_id='T2Q_Domain'
+        # )
+        # self.virtual_tags.append(virtual_tag)
+        # print(f'Created VirtualTag for T2: {operations}')
+
+        # Construct VirtualTag for Q statistic
+        # residuals = new_data - self.pca.inverse_transform(scores_new)
+        # Q_stats = np.sum(residuals**2, axis=1)
+        # operations = 'lambda ' + ', '.join("x_{} ".format(i+1) for i in range(len(tags))) + ': ' + ' + '.join(
+        #     [f'({coef:.5f} * x_{i+1})' for i, (coef, tag) in enumerate(zip(pc_coeffs, tags)) if abs(coef) > 1e-5]
+        # )
+        # virtual_tag = VirtualTag(
+        #     id='Q',
+        #     tags=[self.network.get_tag(tag) for tag in tags],
+        #     operations=operations,
+        #     tag_type='Q_Statistic',
+        #     parent_id='T2Q_Domain'
+        # )
+        # self.virtual_tags.append(virtual_tag)
+        # print(f'Created VirtualTag for Q: {operations}')
+
 
 if __name__ == '__main__':
     columns = ['timestamp', 
@@ -529,7 +626,7 @@ if __name__ == '__main__':
                             # columns=columns
                             )
     
-    dataset.plot_data(save=args.data_plot)
+    # dataset.plot_data(save=args.data_plot)
     dataset.plot_data(save=args.data_plot.replace('.png', '_test.png'), mode='test')
 
     fd_system = FaultDetectionSystem('json/Desal.json',

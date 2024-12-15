@@ -47,3 +47,10 @@ RO_name_to_color = {
     "Circulation Pump speed (RPM)": "green",
     "Circulation Pump pressure (PSI)": "black",
 }
+
+RO_item_to_color = {
+    "intake": "blue",
+    "wastewater": "orange",
+    "HP Pump": "saddlebrown",
+    "Circulation Pump": "green",
+}
