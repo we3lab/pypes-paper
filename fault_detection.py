@@ -322,8 +322,14 @@ class MeasurementData:
                 handles.extend(h)
                 labels.extend(l)
             label_to_handle = dict(zip(labels, handles))
-            axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.85, 1.5), loc='upper left')
-            
+            axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.75, 1.8), loc='upper left')
+            # legend = axs[0].get_legend()
+            # legend.set_bbox_to_anchor((0.75, 3))
+            # fig  = legend.figure
+            # fig.canvas.draw()
+            # bbox  = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+            # fig.savefig('results/fault_detection/legend.png', dpi="figure", bbox_inches=bbox)
+
         else:
             plt.figure(figsize=(12, 8))
             axes = []
@@ -528,7 +534,14 @@ class FaultDetectionSystem:
             handles.extend(h)
             labels.extend(l)
         label_to_handle = dict(zip(labels, handles))
-        axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.85, 1), loc='upper left')
+        # axs[0].legend(label_to_handle.values(), label_to_handle.keys(), bbox_to_anchor=(0.85, 1), loc='upper left')
+
+        # legend = axs[0].get_legend()
+        # legend.set_bbox_to_anchor((0.75, 3))
+        # fig  = legend.figure
+        # fig.canvas.draw()
+        # bbox  = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        # fig.savefig('results/fault_detection/legend_TQ.png', dpi="figure", bbox_inches=bbox)
         
         labels = self.dataset.testing_data['timestamp'].apply(lambda x: x[5:10])
         positions = range(0, len(labels)+1, len(labels)//10)

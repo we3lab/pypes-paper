@@ -92,11 +92,11 @@
     "Joint90",
     "Joint91",
     "Joint92",
-    "Reservoir93",
-    "Reservoir94",
-    "Tank95",
-    "Tank96",
-    "Tank97"
+    "Reservoir1",
+    "Reservoir2",
+    "Tank1",
+    "Tank2",
+    "Tank3"
   ],
   "connections": [
     "Pipe1",
@@ -216,8 +216,8 @@
     "Pipe115",
     "Pipe116",
     "Pipe117",
-    "Pipe118",
-    "Pipe119"
+    "Pump118",
+    "Pump119"
   ],
   "virtual_tags": {},
   "Joint1": {
@@ -680,33 +680,33 @@
     "contents": "DrinkingWater",
     "tags": {}
   },
-  "Reservoir93": {
+  "Reservoir1": {
     "type": "Reservoir",
     "contents": "DrinkingWater",
     "levation (meters)": 220.0,
     "tags": {}
   },
-  "Reservoir94": {
+  "Reservoir2": {
     "type": "Reservoir",
     "contents": "DrinkingWater",
     "levation (meters)": 167.0,
     "tags": {}
   },
-  "Tank95": {
+  "Tank1": {
     "type": "Tank",
     "contents": "DrinkingWater",
     "levation (meters)": 131.89999389648438,
     "volume (cubic meters)": -748466.75,
     "tags": {}
   },
-  "Tank96": {
+  "Tank2": {
     "type": "Tank",
     "contents": "DrinkingWater",
     "levation (meters)": 116.5,
     "volume (cubic meters)": -228747.21875,
     "tags": {}
   },
-  "Tank97": {
+  "Tank3": {
     "type": "Tank",
     "contents": "DrinkingWater",
     "levation (meters)": 129.0,
@@ -716,28 +716,28 @@
   "Pipe1": {
     "type": "Pipe",
     "contents": "DrinkingWater",
-    "source": "Tank97",
+    "source": "Tank3",
     "destination": "Joint3",
     "tags": {}
   },
   "Pipe2": {
     "type": "Pipe",
     "contents": "DrinkingWater",
-    "source": "Tank95",
+    "source": "Tank1",
     "destination": "Joint5",
     "tags": {}
   },
   "Pipe3": {
     "type": "Pipe",
     "contents": "DrinkingWater",
-    "source": "Tank96",
+    "source": "Tank2",
     "destination": "Joint6",
     "tags": {}
   },
   "Pipe4": {
     "type": "Pipe",
     "contents": "DrinkingWater",
-    "source": "Reservoir93",
+    "source": "Reservoir1",
     "destination": "Joint7",
     "tags": {}
   },
@@ -1532,14 +1532,14 @@
     "destination": "Joint9",
     "tags": {}
   },
-  "Pipe118": {
+  "Pump118": {
     "type": "Pipe",
     "contents": "DrinkingWater",
-    "source": "Reservoir94",
+    "source": "Reservoir2",
     "destination": "Joint1",
     "tags": {}
   },
-  "Pipe119": {
+  "Pump119": {
     "type": "Pipe",
     "contents": "DrinkingWater",
     "source": "Joint7",
