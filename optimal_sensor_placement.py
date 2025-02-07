@@ -266,7 +266,7 @@ class SensorOptimizer:
         print(f"Number of solutions with [{cost:.0f}, {obs:.0f}, {red:.0f}]: {count}")
         return count
 
-    def visualize_pareto_solutions(self):
+    def visualize_pareto_solutions(self, save_path=None):
         pareto_solutions = [(layout[1], layout[2], layout[3]) for layout in self.pareto_front]
         solution_counts = Counter(pareto_solutions)
         costs, observabilities, redundancies, sizes = [], [], [], []
@@ -281,15 +281,23 @@ class SensorOptimizer:
         sizes = [size / max_size * 1000 for size in sizes]
 
         # Create a 3D scatter plot
-        fig = plt.figure(figsize=(10, 7))
+        fig = plt.figure(figsize=(7, 7))
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(costs, observabilities, redundancies, s=sizes, c='b', alpha=0.6)
+        # add dash lines from the points to the axes
+        for i in range(len(costs)):
+            ax.plot([costs[i], costs[i]], [observabilities[i], observabilities[i]], [0, redundancies[i]], c='gray', linestyle='--', linewidth=0.8)
+            ax.plot([costs[i], costs[i]], [0, observabilities[i]], [redundancies[i], redundancies[i]], c='gray', linestyle='--', linewidth=0.8)
+            ax.plot([0, costs[i]], [observabilities[i], observabilities[i]], [redundancies[i], redundancies[i]], c='gray', linestyle='--', linewidth=0.8)
 
         ax.set_xlabel('Cost')
         ax.set_ylabel('Observability')
         ax.set_zlabel('Redundancy')
-        ax.set_title('Pareto-Optimal Solutions (Cost, Observability, Redundancy)')
+        ax.set_title('Pareto-Optimal Solutions (WWTP2-update)', fontsize=18)
         plt.show()
+        if save_path:
+            fig.savefig(save_path)
+            
 
 
 if __name__ == '__main__':
@@ -340,6 +348,7 @@ if __name__ == '__main__':
     # optimizer.visualize_graph()
 
     # print(optimizer)
+    optimizer.visualize_pareto_solutions(save_path="results/opt_sensor/pareto_front_WWTP2.png")
     optimizer.save_pareto_solutions(path=args.log_file)
     optimizer.count_types()
     # optimizer.count_objectives((6, 7, 6))
