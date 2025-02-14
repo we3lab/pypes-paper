@@ -18,7 +18,7 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
 
 
-def epyt2pypes(inp_file, out_file, add_nodes=False):
+def epyt2pypes(inp_file, out_file, add_nodes=False, use_name_as_id=False):
     """Convert an EPANET input file to a PYPES JSON file
 
     Parameters
@@ -31,7 +31,13 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
 
     add_nodes : bool
         Whether to add additional nodes of Pumps
+
+    use_name_as_id : bool
+        Whether to use the node name as the node id, this should be set to False if add_nodes is True
     """
+
+    if add_nodes and use_name_as_id:
+        raise ValueError("use_name_as_id should be False if add_nodes is True")
 
     G = epanet(inp_file)
 
@@ -45,12 +51,16 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
         "Reservoir": 0,
         "Pipe": 0,
         "Pump": 0,
+        "Prv": 0,
     }
 
     for n in G.getNodeIndex():
         # Node type is one of: Junction, Reservoir, Tank
         if G.getNodeType(n).upper() == "JUNCTION":
-            id_str = "Joint" + str(obj_counts["Joint"]+1)
+            if use_name_as_id:
+                id_str = G.getNodeNameID(n)
+            else:
+                id_str = "Joint" + str(obj_counts["Joint"]+1)
             node_obj = {
                 "id": id_str,
                 "type": "Joint",
@@ -62,7 +72,10 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
             obj_counts["Joint"] += 1
 
         elif G.getNodeType(n).upper() == "RESERVOIR":
-            id_str = "Reservoir" + str(obj_counts["Reservoir"]+1)
+            if use_name_as_id:
+                id_str = G.getNodeNameID(n)
+            else:
+                id_str = "Reservoir" + str(obj_counts["Reservoir"]+1)
             node_obj = {
                 "id": id_str,
                 "type": "Reservoir",
@@ -75,7 +88,10 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
             obj_counts["Reservoir"] += 1
 
         elif G.getNodeType(n).upper() == "TANK":
-            id_str = "Tank" + str(obj_counts["Tank"]+1)
+            if use_name_as_id:
+                id_str = G.getNodeNameID(n)
+            else:
+                id_str = "Tank" + str(obj_counts["Tank"]+1)
             node_obj = {
                 "id":id_str,
                 "type": "Tank",
@@ -93,7 +109,7 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
 
     for connection in G.getLinkIndex():
         if add_nodes:
-            # Link type is one of: Pipe, Pump, Valve
+            # Link type is one of: Pipe, Pump, Valve, Prv
             if G.getLinkType(connection).upper() == "PIPE":
                 connection_obj = {
                     "id": "Pipe" + str(obj_counts["Pipe"]),
@@ -192,7 +208,10 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
         else:
             type_str = G.getLinkType(connection).upper()
             type_str = type_str[0].upper() + type_str[1:].lower()
-            id_str = type_str + str(connection)
+            if use_name_as_id:
+                id_str = G.getLinkNameID(connection)
+            else:
+                id_str = type_str + str(connection)
             connection_obj = {
                 "id": id_str,
                 "type": "Pipe",
@@ -203,9 +222,9 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
             }
             connections[id_str] = connection_obj
             obj_counts[type_str] += 1
-    
-    print(obj_counts)
 
+    print(obj_counts)
+    
     data = {
         "nodes": list(nodes.keys()),
         "connections": list(connections.keys()),
@@ -226,8 +245,9 @@ def epyt2pypes(inp_file, out_file, add_nodes=False):
 
 if __name__ == "__main__":
     epyt2pypes(
-        "json/others/EPANET Net 3.inp", 
-        "json/EPANET Net 3.json", 
-        add_nodes=False
+        "json/others/L-Town.inp", 
+        "json/L-Town.json", 
+        add_nodes=False, 
+        use_name_as_id=True
     )
     print("EPANET to PYPES conversion complete.")
