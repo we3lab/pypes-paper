@@ -3,6 +3,7 @@ from pype_schema.tag import VirtualTag
 from pype_schema.visualize import draw_graph
 
 import os
+import time
 import numpy as np
 from datetime import datetime
 import scipy.signal as signal
@@ -39,11 +40,11 @@ class LeakageDetectionSystem:
         Load data from a CSV file
 
         Timestamp   p227   p235  PUMP_1
-        0  2018-01-01 00:00:00  77.77  83.93   44.04
-        1  2018-01-01 00:05:00  72.51  76.34   44.06
-        2  2018-01-01 00:10:00  71.54  78.68   44.06
-        3  2018-01-01 00:15:00  69.85  75.50   44.07
-        4  2018-01-01 00:20:00  77.12  82.99   44.03
+        2018-01-01 00:00:00  77.77  83.93   44.04
+        2018-01-01 00:05:00  72.51  76.34   44.06
+        2018-01-01 00:10:00  71.54  78.68   44.06
+        2018-01-01 00:15:00  69.85  75.50   44.07
+        2018-01-01 00:20:00  77.12  82.99   44.03
         ...
         '''
         self.train_data = pd.read_csv(train_path, index_col=0, parse_dates=True)
@@ -81,7 +82,6 @@ class LeakageDetectionSystem:
             self.rho = np.load(rho_path)
             estimated = A @ self.rho
             print(f'loaded seasonal history estimation from {save_path}')
-        
         else:
             print(f'Estimating seasonal history for {node_name}, length={len(data)}')
             result = least_squares(residuals, np.zeros(2 * terms + 1))
