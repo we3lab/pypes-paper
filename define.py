@@ -39,18 +39,18 @@ RO_tag_mappping = {
 }
 
 RO_name_to_color = {
-    "intake conductivity (uS/cm)": "red",
-    "wastewater flowrate (GPM)": "saddlebrown",
-    "intake flowrate (GPM)": "saddlebrown",
-    "HP Pump speed (RPM)": "green",
-    "HP Pump pressure (PSI)": "black",
-    "Circulation Pump speed (RPM)": "green",
-    "Circulation Pump pressure (PSI)": "black",
+    "intake conductivity (uS/cm)": "#1f78b4",
+    "wastewater flowrate (GPM)": "#33a02c",
+    "intake flowrate (GPM)": "#1f78b4",
+    "HP Pump speed (RPM)": "#1f78b4",
+    "HP Pump pressure (PSI)": "#1f78b4",
+    "Circulation Pump speed (RPM)": "#33a02c",
+    "Circulation Pump pressure (PSI)": "#33a02c",
 }
 
 RO_item_to_color = {
-    "intake": "blue",
-    "wastewater": "orange",
-    "HP Pump": "saddlebrown",
-    "Circulation Pump": "green",
+    "intake": "#1f78b4",
+    "wastewater": "#33a02c",
+    "HP Pump": "#1f78b4",
+    "Circulation Pump": "#33a02c",
 }

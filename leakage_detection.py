@@ -7,15 +7,24 @@ import numpy as np
 from datetime import datetime
 import scipy.signal as signal
 import matplotlib.pyplot as plt
-from matplotlib.dates import AutoDateFormatter, AutoDateLocator
+from matplotlib.dates import MonthLocator, DateFormatter, DayLocator
 import pandas as pd
 from scipy.optimize import least_squares
-from tqdm import tqdm
 import warnings
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
-xtick_locator = AutoDateLocator()
-xtick_formatter = AutoDateFormatter(xtick_locator)
+# Define the locator and formatter
+plt.rcParams['figure.dpi'] = 300
+xtick_locator = MonthLocator(interval=3)  # Show ticks every month
+xtick_formatter = DateFormatter('%b %d')  # Format as "Feb 10"
+
+node_colors = {
+    'p227': 'black',
+    'p235': '#33a02c', 
+}
+plt.rcParams['axes.labelsize'] = 22  # Font size for axis labels
+plt.rcParams['xtick.labelsize'] = 22  # Font size for x-axis tick labels
+plt.rcParams['ytick.labelsize'] = 22  # Font size for y-axis tick labels
 
 class LeakageDetectionSystem:
     def __init__(self, train_data_path, test_data_path, network_path, delta_t=5):
@@ -44,7 +53,7 @@ class LeakageDetectionSystem:
         self.q_r = pd.DataFrame(index=self.train_data.index, columns=self.train_data.columns)
         self.s_r = pd.DataFrame(index=self.train_data.index, columns=self.train_data.columns)
         self.test_q_r = pd.DataFrame(index=self.test_data.index, columns=self.test_data.columns)
-        self.test_s_r = pd.DataFrame(index=self.test_data.index, columns=self.test_data.columns)
+        self.test_s_r = {c: None for c in self.test_data.columns}
         self.test_theta_r = {c: None for c in self.test_data.columns}
     
     def load_network(self, json_path):
@@ -127,17 +136,6 @@ class LeakageDetectionSystem:
         
         data = self.q_r[node_name]
 
-        # sample the first week of each season as to calculate the initial coefficients
-        # data = np.concatenate([ self.q_r[node_name][:7*24*12], 
-        #                         self.q_r[node_name][3*7*24*12:4*7*24*12], 
-        #                         self.q_r[node_name][6*7*24*12:7*7*24*12],
-        #                         self.q_r[node_name][9*7*24*12:10*7*24*12]],
-        #                         axis=0)
-        # timestamps = self.data.index[:7*24*12]\
-        #     .append(self.data.index[3*7*24*12:4*7*24*12])\
-        #     .append(self.data.index[6*7*24*12:7*7*24*12])\
-        #     .append(self.data.index[9*7*24*12:10*7*24*12])
-
         def residuals(x):
             return A @ x - data
 
@@ -189,8 +187,14 @@ class LeakageDetectionSystem:
                             [np.sin(n * omega * t) for n in range(1, terms + 1)])
         return A @ self.theta0
     
-    def processing_testing_data(self, node_name, visualize=False, save_path=None, override=False):
+    def processing_testing_data(self, node_name, visualize=False, save_path=None, start_date=None, weeks=2, override=False):
+        if start_date is not None:
+            start_idx = (start_date - self.test_data.index[0]).days * 24 * 12
+        else:
+            start_idx = 0
+
         data = self.test_data[node_name]
+        timestamp = self.test_data.index[start_idx:start_idx + weeks*7*24*12]
         
         theta_r_path = f'{save_path}/theta_r_{node_name}.npy'
         s_r_path = f'{save_path}/s_r_{node_name}.npy'
@@ -208,7 +212,14 @@ class LeakageDetectionSystem:
         else:
             # update theta
             self.test_q_r[node_name] = data/self.calculate_seasonal_signal(len(data))
-            self.test_theta_r[node_name], self.test_s_r[node_name], s_r_theta0 = self.update_theta(self.test_q_r[node_name], terms=100, G=None, alpha=0.01)
+            self.test_theta_r[node_name], self.test_s_r[node_name], s_r_theta0 = \
+                self.update_theta(self.test_q_r[node_name], 
+                                  terms=100, 
+                                  G=None, 
+                                  alpha=0.01, 
+                                  start_idx=start_idx, 
+                                  weeks=weeks,
+                                  )
             np.save(theta_r_path, self.test_theta_r[node_name])
             np.save(s_r_path, self.test_s_r[node_name])    
             np.save(s_r_theta0_path, s_r_theta0)
@@ -218,9 +229,9 @@ class LeakageDetectionSystem:
             fig, ax = plt.subplots(1, 1, figsize=(10, 6))
             ax.xaxis.set_major_locator(xtick_locator)
             ax.xaxis.set_major_formatter(xtick_formatter)
-            ax.plot(self.test_data.index, self.test_q_r[node_name], label='q_r(k)')
-            ax.plot(self.test_data.index, self.test_s_r[node_name], label='s_r(k)')
-            ax.plot(self.test_data.index, s_r_theta0, label='s_r_theta0(k)')
+            ax.plot(timestamp, self.test_q_r[node_name][start_idx:start_idx + weeks*7*24*12], label='q_r(k)')
+            ax.plot(timestamp, self.test_s_r[node_name], label='s_r(k)')
+            ax.plot(timestamp, s_r_theta0, label='s_r_theta0(k)')
             ax.legend()
             fig.suptitle(f'Testing data estimation for {node_name}')
             plt.show()
@@ -228,9 +239,12 @@ class LeakageDetectionSystem:
             plt.close()
 
     
-    def update_theta(self, q_r, terms=100, G=None, alpha=0.01, visualize=False, weeks=2):
+    def update_theta(self, q_r, terms=100, G=None, alpha=0.01, start_idx=None, weeks=2, visualize=False):
         if G is None:
             G = 1e-2*np.eye(2*terms+1)
+        
+        if start_idx is not None:
+            q_r = q_r[start_idx:start_idx + weeks*7*24*12]
 
         omega = 2 * np.pi / self.Ts
         s_r = np.zeros_like(q_r)
@@ -270,24 +284,22 @@ class LeakageDetectionSystem:
         plt.legend()
         plt.show() 
 
-    def estimate_leakage_threshold(self, node_name, ratio=1e-1, weeks=None):
+    def estimate_leakage_threshold(self, node_name, ratio=1e-1, start_idx=None, weeks=None):
         ''' Estimate the small leakage threshold (eta) from historical data. '''
-        residuals = self.test_q_r[node_name] - self.test_s_r[node_name]
+        residuals = self.test_q_r[node_name][start_idx:start_idx+weeks*7*24*12] - self.test_s_r[node_name]
         if weeks is not None:
-            residuals = residuals[:weeks*7*24*12]
+            residuals = residuals
         eta = ratio*np.mean(residuals[residuals > 0])  # Consider only positive deviations
         print(f"Estimated eta (small leakage threshold): {eta}")
         return eta
     
-    def detect_leakage(self, node_name, eta=None, threshold=30, weeks=None):
+    def detect_leakage(self, node_name, eta=None, threshold=30, start_idx=None, weeks=None):
         ''' Implement CUSUM-based leakage detection. '''
         if eta is None:
-            eta = self.estimate_leakage_threshold(node_name, weeks=weeks)
+            eta = self.estimate_leakage_threshold(node_name, start_idx=start_idx, weeks=weeks)
         
         # 1st term of the Fourier series
         theta_0 = self.test_theta_r[node_name][:, 0]
-        if weeks is not None:
-            theta_0 = theta_0[:weeks*7*24*12]
         cusum = np.zeros_like(theta_0)
         for k in range(1, len(theta_0)):
             cusum[k] = max(0, cusum[k-1] + (theta_0[k] - 1 - eta))
@@ -296,54 +308,68 @@ class LeakageDetectionSystem:
         print(f"Leak detected at indices: {detection_times}")
         return detection_times, cusum
     
-    def visualize_leakage(self, node_name, weeks=2, threshold=1, save_path=None):
+    def visualize_leakage(self, node_name, start_date=None, weeks=2, threshold=1, save_path=None, visualize=False):
         ''' Visualize detected leakage events. '''
-        detection_times, cusum = self.detect_leakage(node_name, weeks=weeks, threshold=threshold)
+        if start_date is not None:
+            start_idx = start_idx = (start_date - self.test_data.index[0]).days * 24 * 12
+        else:
+            start_idx = 0
+
+        detection_times, cusum = self.detect_leakage(node_name, start_idx=start_idx, weeks=weeks, threshold=threshold)
         normalized_inflow = self.test_q_r[node_name][:weeks*7*24*12]
         timestamp = self.test_data.index
         if weeks is not None:
             timestamp = timestamp[:weeks*7*24*12]
         
-        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-        ax.xaxis.set_major_locator(xtick_locator)
-        ax.xaxis.set_major_formatter(xtick_formatter)
-        ax.plot(timestamp, normalized_inflow, label="Normalized Inflow")
-        ax.plot(timestamp, cusum / max(cusum), linestyle='dashed', label="CUSUM (scaled)")
-        # ax.axhline(threshold/max(cusum), color='r', linestyle='dashed', label="Threshold")
-        ax.legend()
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Normalized Flow & CUSUM")
-        ax.set_title(f"Leakage Detection for {node_name}")
-        plt.show()
+        fig, ax = plt.subplots(1, 1, figsize=(12, 5))
+        ax.xaxis.set_major_locator(DayLocator(interval=10))
+        ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
+
+        ax.plot(timestamp, normalized_inflow, label=f"{node_name})", color=node_colors[node_name], linewidth=1.5)
+        ax.plot(timestamp, cusum / max(cusum), linestyle='dashed', label="CUSUM", color='#1f78b4', linewidth=2)
+        ax.axhline(threshold/max(cusum), linestyle='dashed', label="Threshold", color='#fb9a99', linewidth=2)
+        # ax.legend(loc='upper right', fontsize=16)
+        ax.set_xticklabels([])
+        # ax.set_xlabel("Time")
+        ax.set_ylabel("Normalized values")
+        ax.set_ylim([-0.1, 2.0])
+        ax.set_yticks([0, 0.5, 1.0, 1.5, 2.0])
+        # ax.set_title(f"Leakage Detection for {node_name}", fontsize=24)
+        if visualize:
+            plt.show()
         if save_path is not None:
             fig.savefig(save_path)
-        plt.close()
+            plt.close()
 
 if __name__ == '__main__':
-    node = 'p227'
+    nodes = ['p235', 'p227'] # p227, p235, PUMP_1
     weeks = 10
     train_path = 'data/BattLeDIM/2018_SCADA_Flows.csv'
     test_path = 'data/BattLeDIM/2019_SCADA_Flows.csv'
     network_path = 'json/L-Town.json'
     lds = LeakageDetectionSystem(train_path, test_path, network_path)
-    
-    lds.seasonal_signal(node_name=node, 
-                        terms=2,
+    for node in nodes:
+        lds.seasonal_signal(node_name=node, 
+                            terms=2,
+                            visualize=False, 
+                            save_path=f'results/leak_detection', 
+                            override=False)
+        lds.weekly_signal(node_name=node, 
+                        terms=100,
                         visualize=False, 
                         save_path=f'results/leak_detection', 
                         override=False)
-    lds.weekly_signal(node_name=node, 
-                      terms=100,
-                      visualize=False, 
-                      save_path=f'results/leak_detection', 
-                      override=False)
-    
-    lds.processing_testing_data(node_name=node,
-                                 visualize=False, 
-                                 save_path=f'results/leak_detection', 
-                                 override=False)
+        
+        lds.processing_testing_data(node_name=node,
+                                    visualize=False, 
+                                    save_path=f'results/leak_detection', 
+                                    start_date=datetime(2019, 1, 25),
+                                    weeks=weeks,
+                                    override=False)
 
-    lds.visualize_leakage(node_name=node, 
-                          threshold=10,
-                          weeks=10,
-                          save_path=f'results/leak_detection/leakage_{node}.png')
+        lds.visualize_leakage(node_name=node, 
+                            threshold=20,
+                            start_date=datetime(2019, 1, 25),
+                            weeks=weeks,
+                            save_path=f'results/leak_detection/leakage_{node}.png', 
+                            visualize=False)

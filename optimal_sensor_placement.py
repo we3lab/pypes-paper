@@ -15,6 +15,13 @@ parser.add_argument("--log_file", "-l", type=str, help="Path to log file")
 parser.add_argument("--original_log_file", "-o", type=str, help="Path to original log file")
 args = parser.parse_args()
 
+plt.rcParams['axes.labelsize'] = 14  # Font size for axis labels
+plt.rcParams['xtick.labelsize'] = 14  # Font size for x-axis tick labels
+plt.rcParams['ytick.labelsize'] = 14  # Font size for y-axis tick labels
+# plt.rcParams['figure.dpi'] = 300 # Sets default DPI to 300
+plt.rcParams['savefig.dpi'] = 300
+# plt.rc('text', usetex=True)
+
 class SensorOptimizer:
     def __init__(self, cost_weights, observability_weights, redundancy_weights, json_path=None):
         # Create graph
@@ -248,7 +255,7 @@ class SensorOptimizer:
     def count_types(self):
         tcounts = defaultdict(int)
         for layout, cost, obs, red in self.pareto_front:
-            tcounts[(cost, self.n-obs, self.n-red)] += 1
+            tcounts[(self.n-obs, cost, self.n-red)] += 1
         sorted_tcounts = dict(sorted(tcounts.items(), key=lambda item: item[0]))
         print("Number of solutions by type:")
         for t, count in sorted_tcounts.items():
@@ -281,7 +288,7 @@ class SensorOptimizer:
         sizes = [size / max_size * 1000 for size in sizes]
 
         # Create a 3D scatter plot
-        fig = plt.figure(figsize=(7, 7))
+        fig = plt.figure(figsize=(8, 8))
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(costs, observabilities, redundancies, s=sizes, c='b', alpha=0.6)
         # add dash lines from the points to the axes
@@ -293,14 +300,132 @@ class SensorOptimizer:
         ax.set_xlabel('Cost')
         ax.set_ylabel('Observability')
         ax.set_zlabel('Redundancy')
-        ax.set_title('Pareto-Optimal Solutions (WWTP2-update)', fontsize=18)
+        # ax.set_title('Pareto-Optimal Solutions (WWTP2-update)', fontsize=18)
         plt.show()
         if save_path:
             fig.savefig(save_path)
-            
 
 
-if __name__ == '__main__':
+def plot_pareto_3d(file_path, plant_no=1, margin=0.73):
+    """
+    Plot a 3D Pareto front from a text file containing Cost, Observability, Redundancy, and Layout.
+    
+    Parameters:
+    - file_path (str): Path to the input text file.
+    - plant_no (int): Plant number for labeling (default=1).
+    - margin (float): Margin for plot limits (default=0.73 for PlantNo=1, adjust as needed).
+    """
+
+    blue = "#1f78b4"
+    green = "#33a02c"
+    red_color = "#EA3323"
+    orange = "#FFC400"
+
+
+    # Load data from text file
+    with open(file_path, 'r') as f:
+        lines = f.readlines()[1:]  # Skip header
+
+    # Parse data
+    ParetoFront = []
+    Layouts = []
+    for line in lines:
+        parts = line.strip().split('\t')
+        cost, obs, red = eval(parts[0])  # Parse tuple like (0, 0, 0)
+        layout = eval(parts[1])          # Parse list like [0, 0, 0, ...]
+        ParetoFront.append([cost, obs, red])
+        Layouts.append(layout)
+
+    ParetoFront = np.array(ParetoFront)
+    Layouts = np.array(Layouts)
+
+    # Compute maximum values
+    nC = np.max(ParetoFront[:, 0])  # Max cost (sensors)
+    nO = np.max(ParetoFront[:, 1])  # Max observability
+    nR = np.max(ParetoFront[:, 2])  # Max redundancy
+    MaxScale = np.max([nC, nO, nR])
+    MaxXY = np.max([nC, nO])
+
+    # Get unique Pareto points and their counts
+    unique_points, indices = np.unique(ParetoFront, axis=0, return_inverse=True)
+    counts = np.bincount(indices)
+    Matrix = np.hstack((counts.reshape(-1, 1), unique_points))
+
+    # Debug: Print data to verify
+    print(f"ParetoFront:\n{ParetoFront}")
+    print(f"Unique Points:\n{unique_points}")
+    print(f"Counts:\n{counts}")
+    print(f"Matrix:\n{Matrix}")
+
+    # Calculate marker sizes based on counts
+    Sizes = counts ** 0.5
+    Sizes = (0.27 + 0.73 * (Sizes - np.min(Sizes)) / (np.max(Sizes) - np.min(Sizes))) * 23
+    print(f"Sizes:\n{Sizes}")
+
+    # Create 3D plot
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlim([-margin, MaxScale + margin])
+    ax.set_ylim([-margin, MaxScale + margin])
+    ax.set_zlim([0, MaxScale + margin])
+    ax.set_xticks(np.arange(0, MaxScale + 1))
+    ax.set_yticks(np.arange(0, MaxScale + 1))
+    ax.set_zticks(np.arange(0, MaxScale + 1), minor=True)
+    ax.grid(True)
+    # ax.zaxis._axinfo['juggled'] = (2,2,2)
+
+    for i in range(len(unique_points)):
+        ax.plot3D([MaxScale + margin, unique_points[i, 0]], 
+                  [unique_points[i, 1], unique_points[i, 1]], 
+                  [unique_points[i, 2], unique_points[i, 2]], '-', 
+                  color=[0.42]*3, linewidth=0.5)
+        ax.plot3D([unique_points[i, 0], unique_points[i, 0]], 
+                  [-margin, unique_points[i, 1]], 
+                  [unique_points[i, 2], unique_points[i, 2]], '-', 
+                  color=[0.42]*3, linewidth=0.5)
+        ax.plot3D([unique_points[i, 0], unique_points[i, 0]], 
+                  [unique_points[i, 1], unique_points[i, 1]], 
+                  [-margin, unique_points[i, 2]], '-', 
+                  color=[0.42]*3, linewidth=0.5)
+
+    ax.plot3D([0, 0], [-margin, nO], [nR, nR], '--', 
+              color=[0.42]*3, linewidth=0.5)  # y-plane projection at x=nC
+    ax.plot3D([0, 0], [nO, nO], [-margin, nR+margin], '--', 
+              color=[0.42]*3, linewidth=0.5)  # z-plane projection at x=nC
+    ax.plot3D([-margin, nC], [nO, nO], [nR, nR], '--', 
+              color=[0.42]*3, linewidth=0.5)  # x-plane projection ending at x=nC
+    ax.plot3D([0], [nO], [nR], 'kx')
+    
+    # Define conditions and colors as per MATLAB code
+    conditions = [
+        (np.logical_and(np.logical_and(unique_points[:, 1] != nO, unique_points[:, 0] != 0), 
+                        np.logical_and(unique_points[:, 2] != nR, unique_points[:, 2] != 0)), green),  # Green
+        (np.logical_and(unique_points[:, 1] == nO, unique_points[:, 0] + np.sum(Layouts[0]) == unique_points[:, 2])[1:], red_color),  # Red
+        (np.logical_and(unique_points[:, 1] == nO, unique_points[:, 0] + np.sum(Layouts[0]) == unique_points[:, 2])[0:1], orange),  # Orange
+        (np.logical_and(unique_points[:, 1] == nO, unique_points[:, 2] == 0), blue),  # Blue
+        (unique_points[:, 0] == 0, 'k'),  # Black
+        (np.logical_and(np.logical_and(unique_points[:, 0] != 0, unique_points[:, 2] == 0), 
+                        np.logical_and(unique_points[:, 1] != 0, unique_points[:, 1] != nO)), 'w')  # White
+    ]
+
+    # Plot points with specified colors and sizes
+    for condition, color in conditions:
+        select = np.where(condition)[0]
+        for j in select:
+            ax.plot3D([unique_points[j, 0]], [unique_points[j, 1]], [unique_points[j, 2]], 'ko', 
+                      markerfacecolor=color, markersize=Sizes[j])
+    ax.view_init(azim=-120, elev=30)
+    ax.set_xlabel(f'# sensors (fC)')
+    # ax.set_xlabel(r'$# sensors (f\underline{C})$')
+    ax.set_ylabel(f'# observable ({int(nO)}-fO)')
+    ax.set_zlabel(f'# redundant ({int(nR)}-fR)')
+    # ax.text(MaxXY, MaxScale + margin, MaxScale + margin, f'# redundant ({int(nR)}-fR)', 
+            # fontsize=10, ha='right', va='bottom')
+
+    plt.tight_layout()
+    plt.show()
+
+def run():
     WWTP_ID = args.mode
 
     if WWTP_ID == 1:
@@ -316,7 +441,7 @@ if __name__ == '__main__':
         edges = [('g', 'a'), ('a', 'b'), ('b', 'c'), 
                 ('c', 'd'), ('d', 'e'), ('e', 'g'), 
                 ('e', 'f'), ('g', 'c'), ('f', 'g'), 
-                ('f', 'a'), ('d', '')]
+                ('f', 'a'), ('d', 'b')]
 
     elif WWTP_ID == 3:
         # WWTP3 graph
@@ -340,16 +465,11 @@ if __name__ == '__main__':
     else:
         pareto_front = optimizer.branch()
 
-    # layout = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-    # optimizer.test_objectives(layout)
-    
-    # optimizer = SensorOptimizer(cost_weights, observability_weights, redundancy_weights, json_path="json/others/WWTP3.json")
-
-    # optimizer.visualize_graph()
-
-    # print(optimizer)
     optimizer.visualize_pareto_solutions(save_path="results/opt_sensor/pareto_front_WWTP2.png")
     optimizer.save_pareto_solutions(path=args.log_file)
     optimizer.count_types()
-    # optimizer.count_objectives((6, 7, 6))
-    # optimizer.visualize_pareto_solutions()
+
+
+if __name__ == '__main__':
+    run()
+    # plot_pareto_3d(args.log_file, plant_no=2, margin=0.73)
