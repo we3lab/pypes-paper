@@ -303,7 +303,7 @@ class SensorOptimizer:
         # ax.set_title('Pareto-Optimal Solutions (WWTP2-update)', fontsize=18)
         plt.show()
         if save_path:
-            fig.savefig(save_path)
+            fig.savefig(save_path, bbox_inches="tight")
 
 
 def plot_pareto_3d(file_path, plant_no=1, margin=0.73):

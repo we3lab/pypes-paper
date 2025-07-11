@@ -346,7 +346,7 @@ class MeasurementData:
         plt.tight_layout()
 
         if save:
-            plt.savefig(save)
+            plt.savefig(save, bbox_inches="tight")
         else:
             plt.show()
 
@@ -439,7 +439,7 @@ class FaultDetectionSystem:
 
         plt.tight_layout()
         if save:
-            plt.savefig(save)
+            plt.savefig(save, bbox_inches="tight")
         else:
             plt.show()
 
@@ -708,7 +708,7 @@ class FaultDetectionSystem:
         # Adjust layout and save/show
         plt.tight_layout()
         if save:
-            plt.savefig(save, bbox_inches='tight')
+            plt.savefig(save, bbox_inches="tight")
         else:
             plt.show()
 

@@ -41,10 +41,10 @@
     "tags": {
       "P_400_002A_P.RPM_MV": {
         "type": "Speed",
-        "units": "RPM", 
+        "units": "Hz", 
         "contents": "Brine"
       },
-      "PT_400_002A_P.PV": {
+      "PIT_400_003A_P.PV": {
         "type": "Pressure",
         "units": "PSI", 
         "contents": "Brine"
@@ -93,7 +93,7 @@
     "tags": {
       "P_400_001A_P.RPM_MV": {
         "type": "Speed",
-        "units": "RPM", 
+        "units": "Hz", 
         "contents": "Brine"
       },
       "PDIT_400_002A_P.PV": {
@@ -123,18 +123,7 @@
     "contents": "Brine",
     "source": "Input",
     "destination": "HPPump",
-    "tags": {
-      "AIT_400_001A_P.PV": {
-        "type": "Conductivity",
-        "units": "uS/cm",
-        "contents": "Brine"
-      }, 
-      "FIT_400_002A_P.PV": {
-        "type": "Flow",
-        "units": "GPM",
-        "contents": "Brine"
-      }
-    }
+    "tags": {}
   },
   "InputToERI": {
     "type": "Pipe",
@@ -189,6 +178,17 @@
     "contents": "ProductWater",
     "source": "SWRO",
     "destination": "Output",
-    "tags": {}
+    "tags": {
+      "AIT_400_001A_P.PV": {
+        "type": "Conductivity",
+        "units": "uS/cm",
+        "contents": "Brine"
+      }, 
+      "FIT_400_002A_P.PV": {
+        "type": "Flow",
+        "units": "GPM",
+        "contents": "Brine"
+      }
+    }
   }
 }

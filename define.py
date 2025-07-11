@@ -29,28 +29,29 @@ color_map = {
 
 RO_tag_mappping = {
     "From date": "timestamp",
-    "AIT_400_001A_P.PV": "intake conductivity (uS/cm)", 
-    "FIT_400_001A_P.PV": "wastewater flowrate (GPM)",
-    "FIT_400_002A_P.PV": "intake flowrate (GPM)",
-    "P_400_002A_P.RPM_MV": "HP Pump speed (RPM)",
-    "PT_400_002A_P.PV": "HP Pump pressure (PSI)",
-    "P_400_001A_P.RPM_MV": "Circulation Pump speed (RPM)",
-    "PDIT_400_002A_P.PV": "Circulation Pump pressure (PSI)",
+    "AIT_400_001A_P.PV": "Permeate conductivity (uS/cm)", 
+    "FIT_400_001A_P.PV": "Brine flowrate (GPM)",
+    "FIT_400_002A_P.PV": "Permeate flowrate (GPM)",
+    "P_400_002A_P.RPM_MV": "HP pump speed (Hz)",
+    # "PT_400_002A_P.PV": "HP pump pressure (PSI)",
+    "PIT_400_003A_P.PV": "HP pump pressure (PSI)",
+    "P_400_001A_P.RPM_MV": "Circulation pump speed (RPM)",
+    "PDIT_400_002A_P.PV": "Circulation pump pressure (PSI)",
 }
 
 RO_name_to_color = {
-    "intake conductivity (uS/cm)": "#1f78b4",
-    "wastewater flowrate (GPM)": "#33a02c",
-    "intake flowrate (GPM)": "#1f78b4",
-    "HP Pump speed (RPM)": "#1f78b4",
-    "HP Pump pressure (PSI)": "#1f78b4",
-    "Circulation Pump speed (RPM)": "#33a02c",
-    "Circulation Pump pressure (PSI)": "#33a02c",
+    "Permeate conductivity (uS/cm)": "#A6CEE4",
+    "Brine flowrate (GPM)": "#B2E08A",
+    "Permeate flowrate (GPM)": "#A6CEE4",
+    "HP pump speed (Hz)": "#A6CEE4",
+    "HP pump pressure (PSI)": "#A6CEE4",
+    "Circulation pump speed (RPM)": "#B2E08A",
+    "Circulation pump pressure (PSI)": "#B2E08A",
 }
 
 RO_item_to_color = {
-    "intake": "#1f78b4",
-    "wastewater": "#33a02c",
-    "HP Pump": "#1f78b4",
-    "Circulation Pump": "#33a02c",
+    "Permeate": "#A6CEE4",
+    "Brine": "#B2E08A",
+    "HP pump": "#A6CEE4",
+    "Circulation pump": "#B2E08A",
 }

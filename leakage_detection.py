@@ -21,7 +21,7 @@ xtick_formatter = DateFormatter('%b %d')  # Format as "Feb 10"
 
 node_colors = {
     'p227': 'black',
-    'p235': '#33a02c', 
+    'p235': '#B2E08A', 
 }
 plt.rcParams['axes.labelsize'] = 22  # Font size for axis labels
 plt.rcParams['xtick.labelsize'] = 22  # Font size for x-axis tick labels
@@ -105,7 +105,7 @@ class LeakageDetectionSystem:
             ax[1].legend()
             fig.suptitle(f'Seasonal history estimation for {node_name}')
             plt.show()
-            fig.savefig(img_path)
+            fig.savefig(img_path, bbox_inches="tight")
             plt.close()
 
     def calculate_seasonal_signal(self, nt, terms=2):
@@ -176,7 +176,7 @@ class LeakageDetectionSystem:
             ax[1].legend()
             fig.suptitle(f'Weekly history estimation for {node_name}')
             plt.show()
-            fig.savefig(img_path)
+            fig.savefig(img_path, bbox_inches="tight")
             plt.close()
         
     def calculate_weekly_signal(self, nt, terms=100):
@@ -235,7 +235,7 @@ class LeakageDetectionSystem:
             ax.legend()
             fig.suptitle(f'Testing data estimation for {node_name}')
             plt.show()
-            fig.savefig(img_path)
+            fig.savefig(img_path, bbox_inches="tight")
             plt.close()
 
     
@@ -321,24 +321,30 @@ class LeakageDetectionSystem:
         if weeks is not None:
             timestamp = timestamp[:weeks*7*24*12]
         
-        fig, ax = plt.subplots(1, 1, figsize=(12, 5))
+        fig, ax = plt.subplots(1, 1, figsize=(4, 2))
         ax.xaxis.set_major_locator(DayLocator(interval=10))
         ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
 
         ax.plot(timestamp, normalized_inflow, label=f"{node_name})", color=node_colors[node_name], linewidth=1.5)
-        ax.plot(timestamp, cusum / max(cusum), linestyle='dashed', label="CUSUM", color='#1f78b4', linewidth=2)
+        ax.plot(timestamp, cusum / max(cusum), linestyle='dashed', label="CUSUM", color='#A6CEE4', linewidth=2)
         ax.axhline(threshold/max(cusum), linestyle='dashed', label="Threshold", color='#fb9a99', linewidth=2)
-        # ax.legend(loc='upper right', fontsize=16)
-        ax.set_xticklabels([])
-        # ax.set_xlabel("Time")
-        ax.set_ylabel("Normalized values")
+        ax.set_xticks([
+            datetime(2019, 1, 1),
+            datetime(2019, 1, 15),
+            datetime(2019, 1, 29),
+            datetime(2019, 2, 12),
+            datetime(2019, 2, 26),
+            datetime(2019, 3, 12),
+        ])
+        ax.set_ylabel("Normalized values", fontsize=16)
         ax.set_ylim([-0.1, 2.0])
         ax.set_yticks([0, 0.5, 1.0, 1.5, 2.0])
-        # ax.set_title(f"Leakage Detection for {node_name}", fontsize=24)
+        ax.tick_params(axis='both', which='major', labelsize=16)
+        ax.tick_params(axis='x', labelrotation=45)
         if visualize:
             plt.show()
         if save_path is not None:
-            fig.savefig(save_path)
+            fig.savefig(save_path, bbox_inches="tight")
             plt.close()
 
 if __name__ == '__main__':
@@ -363,13 +369,13 @@ if __name__ == '__main__':
         lds.processing_testing_data(node_name=node,
                                     visualize=False, 
                                     save_path=f'results/leak_detection', 
-                                    start_date=datetime(2019, 1, 25),
+                                    start_date=datetime(2019, 1, 1),
                                     weeks=weeks,
                                     override=False)
 
         lds.visualize_leakage(node_name=node, 
-                            threshold=20,
-                            start_date=datetime(2019, 1, 25),
+                            threshold=5,
+                            start_date=datetime(2019, 1, 1),
                             weeks=weeks,
                             save_path=f'results/leak_detection/leakage_{node}.png', 
                             visualize=False)
