@@ -23,9 +23,9 @@ node_colors = {
     'p227': 'black',
     'p235': '#B2E08A', 
 }
-plt.rcParams['axes.labelsize'] = 22  # Font size for axis labels
-plt.rcParams['xtick.labelsize'] = 22  # Font size for x-axis tick labels
-plt.rcParams['ytick.labelsize'] = 22  # Font size for y-axis tick labels
+plt.rcParams['axes.labelsize'] = 14  # Font size for axis labels
+plt.rcParams['xtick.labelsize'] = 14  # Font size for x-axis tick labels
+plt.rcParams['ytick.labelsize'] = 14  # Font size for y-axis tick labels
 
 class LeakageDetectionSystem:
     def __init__(self, train_data_path, test_data_path, network_path, delta_t=5):
@@ -336,10 +336,9 @@ class LeakageDetectionSystem:
             datetime(2019, 2, 26),
             datetime(2019, 3, 12),
         ])
-        ax.set_ylabel("Normalized values", fontsize=16)
+        ax.set_ylabel("Normalized values")
         ax.set_ylim([-0.1, 2.0])
         ax.set_yticks([0, 0.5, 1.0, 1.5, 2.0])
-        ax.tick_params(axis='both', which='major', labelsize=16)
         ax.tick_params(axis='x', labelrotation=45)
         if visualize:
             plt.show()
