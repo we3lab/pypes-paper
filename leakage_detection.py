@@ -349,9 +349,9 @@ class LeakageDetectionSystem:
 if __name__ == '__main__':
     nodes = ['p235', 'p227'] # p227, p235, PUMP_1
     weeks = 10
-    train_path = 'data/BattLeDIM/2018_SCADA_Flows.csv'
-    test_path = 'data/BattLeDIM/2019_SCADA_Flows.csv'
-    network_path = 'json/L-Town.json'
+    train_path = 'data/distribution/2018_SCADA_Flows.csv'
+    test_path = 'data/distribution/2019_SCADA_Flows.csv'
+    network_path = 'json/distribution.json'
     lds = LeakageDetectionSystem(train_path, test_path, network_path)
     for node in nodes:
         lds.seasonal_signal(node_name=node, 

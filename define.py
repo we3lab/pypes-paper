@@ -35,7 +35,7 @@ RO_tag_mappping = {
     "P_400_002A_P.RPM_MV": "HP pump speed (Hz)",
     # "PT_400_002A_P.PV": "HP pump pressure (PSI)",
     "PIT_400_003A_P.PV": "HP pump pressure (PSI)",
-    "P_400_001A_P.RPM_MV": "Circulation pump speed (RPM)",
+    "P_400_001A_P.RPM_MV": "Circulation pump speed (Hz)",
     "PDIT_400_002A_P.PV": "Circulation pump pressure (PSI)",
 }
 
@@ -45,7 +45,7 @@ RO_name_to_color = {
     "Permeate flowrate (GPM)": "#A6CEE4",
     "HP pump speed (Hz)": "#A6CEE4",
     "HP pump pressure (PSI)": "#A6CEE4",
-    "Circulation pump speed (RPM)": "#B2E08A",
+    "Circulation pump speed (Hz)": "#B2E08A",
     "Circulation pump pressure (PSI)": "#B2E08A",
 }
 

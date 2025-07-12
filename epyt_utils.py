@@ -245,8 +245,8 @@ def epyt2pypes(inp_file, out_file, add_nodes=False, use_name_as_id=False):
 
 if __name__ == "__main__":
     epyt2pypes(
-        "json/others/L-Town.inp", 
-        "json/L-Town.json", 
+        "json/L-Town.inp", 
+        "json/distribution.json", 
         add_nodes=False, 
         use_name_as_id=True
     )

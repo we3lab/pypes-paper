@@ -27,7 +27,7 @@ parser.add_argument('--tag_file', type=str, default='data/SB_data/data_info.csv'
 parser.add_argument('--data_folder', type=str, default='data/SB_data/case_study_data', help='Path to the data folder')
 parser.add_argument('--train_test_split', type=float, default=0.8, help='Train-test split ratio')
 parser.add_argument('--data_plot', type=str, default="results/fault_detection/data.png", help='Path to save the data plot')
-parser.add_argument('--json_path', type=str, default='json/Desal.json', help='Path to the network JSON file')
+parser.add_argument('--json_path', type=str, default='json/desalination.json', help='Path to the network JSON file')
 parser.add_argument('--T2Q_plot', type=str, default='results/fault_detection/T2Q_plot.png', help='Path to save the T2Q plot')
 parser.add_argument('--PC_plot', type=str, default='results/fault_detection/PC_plot.png', help='Path to save the PC plot')
 args = parser.parse_args()
@@ -289,14 +289,14 @@ class MeasurementData:
             axs[1].set_ylabel('Conductivity\n(uS/cm)', fontsize=y_label_fontsize)
             axs[1].set_ylim(bottom=0, top=plot_data['intake conductivity (uS/cm)'].max() * 1.1)
 
-            # HP Pump speed (RPM) and Circulation Pump speed (RPM)
-            axs[2].plot(dates, plot_data['HP Pump speed (RPM)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-            axs[2].plot(dates, plot_data['Circulation Pump speed (RPM)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+            # HP Pump speed (Hz) and Circulation Pump speed (Hz)
+            axs[2].plot(dates, plot_data['HP Pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
+            axs[2].plot(dates, plot_data['Circulation Pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     axs[2].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
-            axs[2].set_ylabel('Pump\nspeed\n(RPM)', fontsize=y_label_fontsize)
-            axs[2].set_ylim(bottom=0, top=plot_data['HP Pump speed (RPM)'].max() * 1.1)
+            axs[2].set_ylabel('Pump\nspeed\n(Hz)', fontsize=y_label_fontsize)
+            axs[2].set_ylim(bottom=0, top=plot_data['HP Pump speed (Hz)'].max() * 1.1)
 
             # HP Pump pressure (PSI) and Circulation Pump pressure (PSI)
             axs[3].plot(dates, plot_data['HP Pump pressure (PSI)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
@@ -635,13 +635,13 @@ class FaultDetectionSystem:
         axs[1].set_ylim(bottom=0, top=600)
         axs[1].set_yticks([0, 300, 600])
 
-        # Plot 3: Pump speeds (RPM)
-        axs[2].plot(dates, plot_data['HP Pump speed (RPM)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-        axs[2].plot(dates, plot_data['Circulation Pump speed (RPM)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+        # Plot 3: Pump speeds (Hz)
+        axs[2].plot(dates, plot_data['HP Pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
+        axs[2].plot(dates, plot_data['Circulation Pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 axs[2].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
-        axs[2].set_ylabel('Pump\nspeed\n(RPM)', fontsize=y_label_fontsize)
+        axs[2].set_ylabel('Pump\nspeed\n(Hz)', fontsize=y_label_fontsize)
         axs[2].set_ylim(bottom=0, top=60)
         axs[2].set_yticks([0, 30, 60])
 
@@ -718,9 +718,9 @@ if __name__ == '__main__':
                'intake flowrate (GPM)',
                'intake conductivity (uS/cm)', 
                'wastewater flowrate (GPM)', 
-               'HP Pump speed (RPM)', 
+               'HP Pump speed (Hz)', 
                'HP Pump pressure (PSI)', 
-               'Circulation Pump speed (RPM)',
+               'Circulation Pump speed (Hz)',
                 'Circulation Pump pressure (PSI)'
                ]
     dataset = MeasurementData(tag_file=args.tag_file, 
