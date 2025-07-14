@@ -57,14 +57,13 @@ class MeasurementData:
                 sub_data.append(pd.read_csv(os.path.join(self.data_folder, file)))
         # Concatenate all data files
         data = pd.concat(sub_data)
+        data["From date"] = pd.to_datetime(data["From date"])
         data.drop(columns=['To date'], inplace=True)
         data.sort_values(by='From date', inplace=True)
         data.reset_index(drop=True, inplace=True)
         data.columns = [RO_tag_mappping[col] for col in data.columns]
 
         if self.columns:
-            print(data.columns)
-            print(self.columns)
             data = data[self.columns]
         print(f"Data loaded from {self.data_folder} with shape: {data.shape}")
         return data
@@ -83,16 +82,14 @@ class MeasurementData:
         plt.show()
 
     def filter_data(self, data, mode=1, col_name='Permeate flowrate (GPM)', cutoff=500):
-        # use permeate flowrate > 500 to filter data
-        # also return the index of the filtered data
         # TODO: change filtering to VirtualTag objects
         data_cp = data.copy()
         if mode == 0:
             data_cp = data_cp[data_cp[col_name] < cutoff]
-            print(f"Filtered data with {col_name} <= 500, new shape: {data_cp.shape}")
+            print(f"Filtered data with {col_name} <= {cutoff}, new shape: {data_cp.shape}")
         elif mode == 1:
             data_cp = data_cp[data_cp[col_name] >= cutoff]
-            print(f"Filtered data with {col_name} > 500, new shape: {data_cp.shape}")
+            print(f"Filtered data with {col_name} > {cutoff}, new shape: {data_cp.shape}")
         return data_cp
 
     def detect_and_clean_outliers(self, time_series, delta=0.3, K=1, bandwidth=13):
@@ -168,13 +165,11 @@ class MeasurementData:
 
         # update the data
         self.data = processed_data
-
         if self.train_test_split:
             m = len(processed_data)
             self.training_data = processed_data[:int(m * self.train_test_split)]
             self.testing_data = processed_data[int(m * self.train_test_split):]
             self.testing_data.reset_index(drop=True, inplace=True)
-        
         # Filter data
         if filter_data != -1:
             self.training_data_filtered = self.filter_data(self.training_data, filter_data)
@@ -236,6 +231,7 @@ class MeasurementData:
             plot_data = self.training_data.copy()
         elif mode == 'test':
             plot_data = self.testing_data.copy()
+            plot_data = self.testing_data[:self.test_index[-1]+1]
             # plot_data.reset_index(drop=True, inplace=True)
 
         print(f'Plotting {mode} data with shape: {plot_data.shape}')
@@ -243,31 +239,25 @@ class MeasurementData:
 
         # collect the off hours in a list of pairs (start, end) in self.testing_data
         off_hours = []
-        start = None
         end = self.test_index[0]
         for i in self.test_index:
-            if not start:
-                start = i
-                end = i
-                continue
             if (i-end) > 1:
-                off_hours.append((start, end+1))
-                start = i
+                off_hours.append((end, i))
             end = i
-        off_hours.append((start, end+1))
         self.off_hours = off_hours
 
         if combined:
             y_label_fontsize = 18
             dates = pd.to_datetime(plot_data['timestamp'])
+
             fig, axs = plt.subplots(4, 1, figsize=(12, 7), sharex=True)
             
             # Permeate flowrate (GPM) and Brine flowrate (GPM)
-            axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=2)
+            axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Permeate', color=RO_item_to_color['Permeate'], zorder=2)
             axs[0].plot(dates, plot_data['Brine flowrate (GPM)'], label='Brine', color=RO_item_to_color['Brine'], zorder=2)
             if shade:
                 for i, (start, end) in enumerate(off_hours):
-                    axs[0].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=2)
+                    axs[0].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, zorder=2)
             axs[0].set_ylabel('Flowrate\n(GPM)', fontsize=y_label_fontsize)
             axs[0].set_ylim(bottom=0, top=plot_data['Brine flowrate (GPM)'].max() * 1.1)
             
@@ -275,7 +265,7 @@ class MeasurementData:
             axs[1].plot(dates, plot_data['Permeate conductivity (uS/cm)'], label='Permeate', color=RO_item_to_color['Permeate'], zorder=1)
             if shade:
                 for i, (start, end) in enumerate(off_hours):
-                    axs[1].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
+                    axs[1].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3)
             axs[1].set_ylabel('Conductivity\n(uS/cm)', fontsize=y_label_fontsize)
             axs[1].set_ylim(bottom=0, top=plot_data['Permeate conductivity (uS/cm)'].max() * 1.1)
 
@@ -284,7 +274,7 @@ class MeasurementData:
             axs[2].plot(dates, plot_data['Circulation pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation pump'], linestyle='--')
             if shade:
                 for i, (start, end) in enumerate(off_hours):
-                    axs[2].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
+                    axs[2].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3)
             axs[2].set_ylabel('Pump\nspeed\n(Hz)', fontsize=y_label_fontsize)
             axs[2].set_ylim(bottom=0, top=plot_data['HP pump speed (Hz)'].max() * 1.1)
 
@@ -294,9 +284,9 @@ class MeasurementData:
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     if i == 0:
-                        axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, label='Off hours')
+                        axs[3].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, label='Off hours')
                     else:
-                        axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
+                        axs[3].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3)
             axs[3].set_ylabel('Pump\npressure\n(PSI)', fontsize=y_label_fontsize)
             axs[3].set_ylim(bottom=0, top=plot_data['HP pump pressure (PSI)'].max() * 1.1)
 
@@ -317,7 +307,7 @@ class MeasurementData:
                 ax.plot(plot_data[col])
                 if shade:
                     for start, end in off_hours:
-                        ax.axvspan(start, end, color=gray_color, alpha=0.3, label='Off hours')
+                        ax.axvspan(start, end-1, color=gray_color, alpha=0.3, label='Off hours')
                 if i > 0:
                     ax.sharex(axes[0])
                 else:
@@ -464,7 +454,7 @@ class FaultDetectionSystem:
         T2_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
         Q_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
 
-        # insert data in 
+        # insert data and leave zeros where it was filtered out
         c = 0
         for i in self.dataset.testing_data.index:
             if i in self.dataset.test_index:
@@ -485,7 +475,7 @@ class FaultDetectionSystem:
         # Plot T² statistics
         axs[0].plot(dates, stats_df['T2'], color='black')
         for i, (start, end) in enumerate(self.dataset.off_hours):
-            axs[0].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=2)
+            axs[0].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, zorder=2)
         axs[0].set_ylim(0, 25)
         axs[0].axhline(y=self.T2_threshold_1, color='#fb9a99', label='α=0.01')
         axs[0].axhline(y=self.T2_threshold_5, color='#fb9a99', linestyle='--', label='α=0.05')
@@ -494,7 +484,7 @@ class FaultDetectionSystem:
         # Plot Q statistics
         axs[1].plot(dates, stats_df['Q'], color='black')
         for i, (start, end) in enumerate(self.dataset.off_hours):
-            axs[1].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=2)
+            axs[1].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, zorder=2)
         axs[1].set_ylim(0, 40)
         axs[1].axhline(y=self.Q_threshold_1, color='#fb9a99', label='α=0.01')
         axs[1].axhline(y=self.Q_threshold_5, color='#fb9a99', linestyle='--', label='α=0.05')
@@ -570,7 +560,7 @@ class FaultDetectionSystem:
         
         return smoothed
         
-    def plot_combined_data_and_faults(self, plot_data, test_index, stats_df, save=None, shade=True):
+    def plot_combined_data_and_faults(self, plot_data, stats_df, save=None, shade=True):
         """
         Plot testing data alongside T² and Q statistics in a vertical stack of 6 plots with shared x-axis.
         
@@ -580,23 +570,7 @@ class FaultDetectionSystem:
         - mode: 'all', 'train', 'test' (default: 'test')
         - shade: Boolean to shade off-hours (flowrate < 500)
         """
-   
-        # Collect off hours
-        off_hours = []
-        start = None
-        end = test_index[0]
-        for i in test_index:
-            if not start:
-                start = i
-                end = i
-                continue
-            if (i - end) > 1:
-                off_hours.append((start, end + 1))
-                start = i
-            end = i
-        off_hours.append((start, end + 1))
-        self.off_hours = off_hours
-        off_hours = off_hours[:-1]
+        off_hours = self.dataset.off_hours
 
         # Prepare dates
         dates = pd.to_datetime(plot_data['timestamp'])
@@ -608,20 +582,20 @@ class FaultDetectionSystem:
         y_label_fontsize = 20
 
         # Plot 1: Flowrates (GPM)
-        axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=2)
+        axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Permeate', color=RO_item_to_color['Permeate'], zorder=2)
         axs[0].plot(dates, plot_data['Brine flowrate (GPM)'], label='Brine', color=RO_item_to_color['Brine'], zorder=2)
         if shade:
             for i, (start, end) in enumerate(off_hours):
-                axs[0].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=1)
+                axs[0].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, zorder=1)
         axs[0].set_ylabel('Flowrate\n(GPM)', fontsize=y_label_fontsize)
         axs[0].set_ylim(bottom=0, top=1000)
         axs[0].set_yticks([0, 500, 1000])
 
         # Plot 2: Conductivity (uS/cm)
-        axs[1].plot(dates, plot_data['Permeate conductivity (uS/cm)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=1)
+        axs[1].plot(dates, plot_data['Permeate conductivity (uS/cm)'], label='Permeate', color=RO_item_to_color['Permeate'], zorder=1)
         if shade:
             for i, (start, end) in enumerate(off_hours):
-                axs[1].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
+                axs[1].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3)
         axs[1].set_ylabel('Conductivity\n(uS/cm)', fontsize=y_label_fontsize)
         axs[1].set_ylim(bottom=0, top=600)
         axs[1].set_yticks([0, 300, 600])
@@ -656,7 +630,7 @@ class FaultDetectionSystem:
         axs[4].plot(dates, stats_df['T2'], color='black', label='T²')
         if shade:
             for i, (start, end) in enumerate(off_hours):
-                axs[4].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=2)
+                axs[4].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, zorder=2)
         axs[4].axhline(y=self.T2_threshold_1, color='#fb9a99', label='α=0.01')
         axs[4].axhline(y=self.T2_threshold_5, color='#fb9a99', linestyle='--', label='α=0.05')
         axs[4].set_ylabel('T² Statistic', fontsize=y_label_fontsize)
@@ -668,9 +642,9 @@ class FaultDetectionSystem:
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 if i == 0:
-                    axs[5].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, label='Off Hours')
+                    axs[5].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3, label='Off Hours')
                 else:
-                    axs[5].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
+                    axs[5].axvspan(dates[start], dates[end-1], color=gray_color, alpha=0.3)
         axs[5].axhline(y=self.Q_threshold_1, color='#fb9a99', label='α=0.01')
         axs[5].axhline(y=self.Q_threshold_5, color='#fb9a99', linestyle='--', label='α=0.05')
         axs[5].set_ylabel('Q Statistic', fontsize=y_label_fontsize)
@@ -729,7 +703,7 @@ if __name__ == '__main__':
     # fd_system.plot_pc(save=args.PC_plot)
     fd_system.plot_fault_detection(stats_df, save=args.T2Q_plot)
 
-    fd_system.plot_combined_data_and_faults(dataset.testing_data, dataset.test_index, stats_df, save="results/fault_detection/all.png", shade=True)
+    fd_system.plot_combined_data_and_faults(dataset.testing_data, stats_df, save="results/fault_detection/all.png", shade=True)
 
     for vt in fd_system.virtual_tags:
         print(vt)
