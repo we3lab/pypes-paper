@@ -23,8 +23,8 @@ plt.rcParams['ytick.labelsize'] = 20  # Font size for y-axis tick labels
 gray_color = "#969696"
 
 parser = ArgumentParser()
-parser.add_argument('--tag_file', type=str, default='data/SB_data/data_info.csv', help='Path to the tag file')
-parser.add_argument('--data_folder', type=str, default='data/SB_data/case_study_data', help='Path to the data folder')
+parser.add_argument('--tag_file', type=str, default='data/desalination/tag_list.txt', help='Path to the tag file')
+parser.add_argument('--data_folder', type=str, default='data/desalination', help='Path to the data folder')
 parser.add_argument('--train_test_split', type=float, default=0.8, help='Train-test split ratio')
 parser.add_argument('--data_plot', type=str, default="results/fault_detection/data.png", help='Path to save the data plot')
 parser.add_argument('--json_path', type=str, default='json/desalination.json', help='Path to the network JSON file')
@@ -38,7 +38,7 @@ class MeasurementData:
         self.tag_file = tag_file
         self.train_test_split = train_test_split
         self.columns = columns
-        self.data_info = pd.read_csv(self.tag_file)
+        self.tag_list = pd.read_csv(self.tag_file)
         self.data = self.load_data()
         self.training_data = None
         self.testinv_data = None
@@ -63,15 +63,13 @@ class MeasurementData:
         data.columns = [RO_tag_mappping[col] for col in data.columns]
 
         if self.columns:
+            print(self.columns)
             data = data[self.columns]
         print(f"Data loaded from {self.data_folder} with shape: {data.shape}")
         return data
     
     def print_data(self):
         print(self.data.head())
-
-    def print_format(self):
-        print(self.data_info)
 
     def plot_column(self, column):
         plt.figure(figsize=(10, 5))
@@ -216,16 +214,6 @@ class MeasurementData:
         scaled_data[columns] = scaler.fit_transform(data[columns])
         scaled_data = pd.DataFrame(scaled_data, columns=data.columns)
         return scaled_data
-
-    def plot_type(self, data_type):
-        '''
-        Plot the data based on the data type
-        '''
-        data_columns = self.data_info[self.data_info['type'] == data_type]['Tag']
-        data = self.data[data_columns]
-        data.plot(subplots=True, figsize=(15, 10))
-        plt.suptitle(f'Process Data for {data_type}')
-        plt.show()  
     
     def plot_data(self, save=None, mode='test', shade=True, combined=True):
         '''
@@ -539,7 +527,8 @@ class FaultDetectionSystem:
         """
         # Get PCA coefficients (loadings) and sensor tags
         coefficients = self.pca.components_  # Shape: (num_pcs, num_features)
-        tags = self.dataset.data_info['Tag'].tolist()  # List of sensor tags
+        # List of sensor tags in case there are irrelevant tags in network
+        tags = self.dataset.data_info['Tag'].tolist()
 
         for pc_index in range(min(2, self.n_components)):
             # Get the coefficients for the current principal component
@@ -553,7 +542,7 @@ class FaultDetectionSystem:
             # Create a VirtualTag for the current principal component
             virtual_tag = VirtualTag(
                 id=f'PC_{pc_index+1}',
-                tags=[self.network.get_tag(tag) for tag in tags],
+                tags=[self.network.get_tag(tag, recurse=True) for tag in tags],
                 operations=operations,
                 tag_type='PCA_Component',
                 parent_id='PC_Domain'
@@ -723,27 +712,28 @@ if __name__ == '__main__':
                'Circulation Pump speed (Hz)',
                 'Circulation Pump pressure (PSI)'
                ]
-    dataset = MeasurementData(tag_file=args.tag_file, 
-                              data_folder=args.data_folder, 
-                              train_test_split=args.train_test_split, 
-                              columns=columns
-                              )
-    # dataset.print_data()
-    # dataset.print_format()
+    dataset = MeasurementData(
+        tag_file=args.tag_file, 
+        data_folder=args.data_folder, 
+        train_test_split=args.train_test_split, 
+        columns=columns
+    )
 
-    dataset.preprocess_data(remove_outliers=1, 
-                            filter_data=1, 
-                            # columns=columns
-                            )
+    dataset.preprocess_data(
+        remove_outliers=1, 
+        filter_data=1, 
+        # columns=columns
+    )
     
     # dataset.plot_data(save=args.data_plot)
     dataset.plot_data(save=args.data_plot.replace('.png', '_test.png'), mode='test')
 
-    fd_system = FaultDetectionSystem('json/Desal.json',
-                                     dataset, 
-                                     n_components=2, 
-                                     significance_level=0.01, 
-                                     )
+    fd_system = FaultDetectionSystem(
+        'json/desalination.json',
+        dataset, 
+        n_components=2, 
+        significance_level=0.01, 
+    )
     stats_df = fd_system.detect_faults(virtual_tags=True)
     # fd_system.plot_pc(save=args.PC_plot)
     fd_system.plot_fault_detection(stats_df, save=args.T2Q_plot)
