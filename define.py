@@ -33,7 +33,6 @@ RO_tag_mappping = {
     "FIT_400_001A_P.PV": "Brine flowrate (GPM)",
     "FIT_400_002A_P.PV": "Permeate flowrate (GPM)",
     "P_400_002A_P.RPM_MV": "HP pump speed (Hz)",
-    # "PT_400_002A_P.PV": "HP pump pressure (PSI)",
     "PIT_400_003A_P.PV": "HP pump pressure (PSI)",
     "P_400_001A_P.RPM_MV": "Circulation pump speed (Hz)",
     "PDIT_400_002A_P.PV": "Circulation pump pressure (PSI)",

@@ -63,6 +63,7 @@ class MeasurementData:
         data.columns = [RO_tag_mappping[col] for col in data.columns]
 
         if self.columns:
+            print(data.columns)
             print(self.columns)
             data = data[self.columns]
         print(f"Data loaded from {self.data_folder} with shape: {data.shape}")
@@ -81,20 +82,18 @@ class MeasurementData:
         plt.grid(True)
         plt.show()
 
-    def filter_data(self, data, mode=1):
-        # use intake flowrate > 500 to filter data
+    def filter_data(self, data, mode=1, col_name='Permeate flowrate (GPM)', cutoff=500):
+        # use permeate flowrate > 500 to filter data
         # also return the index of the filtered data
+        # TODO: change filtering to VirtualTag objects
+        data_cp = data.copy()
         if mode == 0:
-            data = data[self.data['intake flowrate (GPM)'] < 500]
-            print(f"Filtered data with intake flowrate <= 500, new shape: {data.shape}")
+            data_cp = data_cp[data_cp[col_name] < cutoff]
+            print(f"Filtered data with {col_name} <= 500, new shape: {data_cp.shape}")
         elif mode == 1:
-            data_cp = data.copy()
-            data_cp = data_cp[data_cp['intake flowrate (GPM)'] < 500]
-            index = data_cp.index
-            data_cp = data.copy()
-            data_cp = data_cp[data_cp['intake flowrate (GPM)'] >= 500]
-            print(f"Filtered data with intake flowrate > 500, new shape: {data_cp.shape}")
-        return data_cp, index.tolist()
+            data_cp = data_cp[data_cp[col_name] >= cutoff]
+            print(f"Filtered data with {col_name} > 500, new shape: {data_cp.shape}")
+        return data_cp
 
     def detect_and_clean_outliers(self, time_series, delta=0.3, K=1, bandwidth=13):
         """
@@ -143,8 +142,8 @@ class MeasurementData:
         - fill_missing: Method to handle missing values
         - filter_data: Filter the data based on a condition 
             -1 for no filter
-            0 for intake flowrate <= 500
-            1 for intake flowrate > 500
+            0 for permeate flowrate <= 500
+            1 for permeate flowrate > 500
         - remove_outliers: Remove outliers in training data using 
             1: the IQR method or 
             0: detect_and_clean_outliers function
@@ -178,8 +177,11 @@ class MeasurementData:
         
         # Filter data
         if filter_data != -1:
-            self.training_data_filtered, self.train_index = self.filter_data(self.training_data, filter_data)
-            self.testing_data_filtered, self.test_index = self.filter_data(self.testing_data, filter_data)
+            self.training_data_filtered = self.filter_data(self.training_data, filter_data)
+            self.testing_data_filtered = self.filter_data(self.testing_data, filter_data)
+            self.test_index = self.testing_data_filtered.index.tolist()
+        else:
+            self.test_index = self.testing_data.index.tolist()
 
         # Remove outliers using the IQR method in train data
         if remove_outliers==1:
@@ -260,43 +262,43 @@ class MeasurementData:
             dates = pd.to_datetime(plot_data['timestamp'])
             fig, axs = plt.subplots(4, 1, figsize=(12, 7), sharex=True)
             
-            # intake flowrate (GPM) and wastewater flowrate (GPM)
-            axs[0].plot(dates, plot_data['intake flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['intake'], zorder=2)
-            axs[0].plot(dates, plot_data['wastewater flowrate (GPM)'], label='Brine', color=RO_item_to_color['wastewater'], zorder=2)
+            # Permeate flowrate (GPM) and Brine flowrate (GPM)
+            axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=2)
+            axs[0].plot(dates, plot_data['Brine flowrate (GPM)'], label='Brine', color=RO_item_to_color['Brine'], zorder=2)
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     axs[0].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=2)
             axs[0].set_ylabel('Flowrate\n(GPM)', fontsize=y_label_fontsize)
-            axs[0].set_ylim(bottom=0, top=plot_data['wastewater flowrate (GPM)'].max() * 1.1)
+            axs[0].set_ylim(bottom=0, top=plot_data['Brine flowrate (GPM)'].max() * 1.1)
             
-            # intake conductivity (uS/cm)
-            axs[1].plot(dates, plot_data['intake conductivity (uS/cm)'], label='Pre-treated water', color=RO_item_to_color['intake'], zorder=1)
+            # Permeate conductivity (uS/cm)
+            axs[1].plot(dates, plot_data['Permeate conductivity (uS/cm)'], label='Permeate', color=RO_item_to_color['Permeate'], zorder=1)
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     axs[1].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
             axs[1].set_ylabel('Conductivity\n(uS/cm)', fontsize=y_label_fontsize)
-            axs[1].set_ylim(bottom=0, top=plot_data['intake conductivity (uS/cm)'].max() * 1.1)
+            axs[1].set_ylim(bottom=0, top=plot_data['Permeate conductivity (uS/cm)'].max() * 1.1)
 
-            # HP Pump speed (Hz) and Circulation Pump speed (Hz)
-            axs[2].plot(dates, plot_data['HP Pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-            axs[2].plot(dates, plot_data['Circulation Pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+            # HP pump speed (Hz) and Circulation pump speed (Hz)
+            axs[2].plot(dates, plot_data['HP pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP pump'], linestyle='--')
+            axs[2].plot(dates, plot_data['Circulation pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation pump'], linestyle='--')
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     axs[2].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
             axs[2].set_ylabel('Pump\nspeed\n(Hz)', fontsize=y_label_fontsize)
-            axs[2].set_ylim(bottom=0, top=plot_data['HP Pump speed (Hz)'].max() * 1.1)
+            axs[2].set_ylim(bottom=0, top=plot_data['HP pump speed (Hz)'].max() * 1.1)
 
-            # HP Pump pressure (PSI) and Circulation Pump pressure (PSI)
-            axs[3].plot(dates, plot_data['HP Pump pressure (PSI)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-            axs[3].plot(dates, plot_data['Circulation Pump pressure (PSI)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+            # HP pump pressure (PSI) and Circulation pump pressure (PSI)
+            axs[3].plot(dates, plot_data['HP pump pressure (PSI)'], label='HP pump', color=RO_item_to_color['HP pump'], linestyle='--')
+            axs[3].plot(dates, plot_data['Circulation pump pressure (PSI)'], label='Circulation pump', color=RO_item_to_color['Circulation pump'], linestyle='--')
             if shade:
                 for i, (start, end) in enumerate(off_hours):
                     if i == 0:
-                        axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, label='Off Hours')
+                        axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, label='Off hours')
                     else:
                         axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
             axs[3].set_ylabel('Pump\npressure\n(PSI)', fontsize=y_label_fontsize)
-            axs[3].set_ylim(bottom=0, top=plot_data['HP Pump pressure (PSI)'].max() * 1.1)
+            axs[3].set_ylim(bottom=0, top=plot_data['HP pump pressure (PSI)'].max() * 1.1)
 
             handles, labels = [], []
             for i in range(4):
@@ -315,7 +317,7 @@ class MeasurementData:
                 ax.plot(plot_data[col])
                 if shade:
                     for start, end in off_hours:
-                        ax.axvspan(start, end, color=gray_color, alpha=0.3, label='Off Hours')
+                        ax.axvspan(start, end, color=gray_color, alpha=0.3, label='Off hours')
                 if i > 0:
                     ax.sharex(axes[0])
                 else:
@@ -462,10 +464,10 @@ class FaultDetectionSystem:
         T2_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
         Q_stats_full_length = np.zeros(self.dataset.testing_data.shape[0])
 
-        # insert 0 in the index not in the test_index
+        # insert data in 
         c = 0
         for i in self.dataset.testing_data.index:
-            if i not in self.dataset.test_index:
+            if i in self.dataset.test_index:
                 T2_stats_full_length[i] = T2_stats[c]
                 Q_stats_full_length[i] = Q_stats[i]
                 c += 1
@@ -528,7 +530,7 @@ class FaultDetectionSystem:
         # Get PCA coefficients (loadings) and sensor tags
         coefficients = self.pca.components_  # Shape: (num_pcs, num_features)
         # List of sensor tags in case there are irrelevant tags in network
-        tags = self.dataset.data_info['Tag'].tolist()
+        tags = self.dataset.tag_list['Tag'].tolist()
 
         for pc_index in range(min(2, self.n_components)):
             # Get the coefficients for the current principal component
@@ -606,8 +608,8 @@ class FaultDetectionSystem:
         y_label_fontsize = 20
 
         # Plot 1: Flowrates (GPM)
-        axs[0].plot(dates, plot_data['intake flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['intake'], zorder=2)
-        axs[0].plot(dates, plot_data['wastewater flowrate (GPM)'], label='Brine', color=RO_item_to_color['wastewater'], zorder=2)
+        axs[0].plot(dates, plot_data['Permeate flowrate (GPM)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=2)
+        axs[0].plot(dates, plot_data['Brine flowrate (GPM)'], label='Brine', color=RO_item_to_color['Brine'], zorder=2)
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 axs[0].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3, zorder=1)
@@ -616,7 +618,7 @@ class FaultDetectionSystem:
         axs[0].set_yticks([0, 500, 1000])
 
         # Plot 2: Conductivity (uS/cm)
-        axs[1].plot(dates, plot_data['intake conductivity (uS/cm)'], label='Pre-treated water', color=RO_item_to_color['intake'], zorder=1)
+        axs[1].plot(dates, plot_data['Permeate conductivity (uS/cm)'], label='Pre-treated water', color=RO_item_to_color['Permeate'], zorder=1)
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 axs[1].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
@@ -625,8 +627,8 @@ class FaultDetectionSystem:
         axs[1].set_yticks([0, 300, 600])
 
         # Plot 3: Pump speeds (Hz)
-        axs[2].plot(dates, plot_data['HP Pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-        axs[2].plot(dates, plot_data['Circulation Pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+        axs[2].plot(dates, plot_data['HP pump speed (Hz)'], label='HP pump', color=RO_item_to_color['HP pump'], linestyle='--')
+        axs[2].plot(dates, plot_data['Circulation pump speed (Hz)'], label='Circulation pump', color=RO_item_to_color['Circulation pump'], linestyle='--')
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 axs[2].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
@@ -635,16 +637,14 @@ class FaultDetectionSystem:
         axs[2].set_yticks([0, 30, 60])
 
         # Plot 4: Pump pressures (PSI)
-        hp_pressure = plot_data['HP Pump pressure (PSI)']
-        circ_pressure = plot_data['Circulation Pump pressure (PSI)']
+        hp_pressure = plot_data['HP pump pressure (PSI)']
+        circ_pressure = plot_data['Circulation pump pressure (PSI)']
 
         # Smooth the data while preserving drops
         smoothed_hp_pressure = self.smooth_with_drop_preservation(hp_pressure, window_size=20, polyorder=2)
         smoothed_circ_pressure = self.smooth_with_drop_preservation(circ_pressure, window_size=5, polyorder=2)
-        axs[3].plot(dates, smoothed_hp_pressure, label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-        # axs[3].plot(dates, plot_data['HP Pump pressure (PSI)'], label='HP pump', color=RO_item_to_color['HP Pump'], linestyle='--')
-        axs[3].plot(dates, smoothed_circ_pressure, label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
-        # axs[3].plot(dates, plot_data['Circulation Pump pressure (PSI)'], label='Circulation pump', color=RO_item_to_color['Circulation Pump'], linestyle='--')
+        axs[3].plot(dates, smoothed_hp_pressure, label='HP pump', color=RO_item_to_color['HP pump'], linestyle='--')
+        axs[3].plot(dates, smoothed_circ_pressure, label='Circulation pump', color=RO_item_to_color['Circulation pump'], linestyle='--')
         if shade:
             for i, (start, end) in enumerate(off_hours):
                 axs[3].axvspan(dates[start], dates[end], color=gray_color, alpha=0.3)
@@ -703,20 +703,11 @@ class FaultDetectionSystem:
 
 
 if __name__ == '__main__':
-    columns = ['timestamp', 
-               'intake flowrate (GPM)',
-               'intake conductivity (uS/cm)', 
-               'wastewater flowrate (GPM)', 
-               'HP Pump speed (Hz)', 
-               'HP Pump pressure (PSI)', 
-               'Circulation Pump speed (Hz)',
-                'Circulation Pump pressure (PSI)'
-               ]
     dataset = MeasurementData(
         tag_file=args.tag_file, 
         data_folder=args.data_folder, 
         train_test_split=args.train_test_split, 
-        columns=columns
+        columns=RO_tag_mappping.values()
     )
 
     dataset.preprocess_data(
