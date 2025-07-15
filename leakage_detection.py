@@ -21,7 +21,7 @@ xtick_formatter = DateFormatter("%b %d")  # Format as "Feb 10"
 
 node_colors = {
     "p227": "black",
-    "p235": "#B2E08A",
+    "p235": "#92D050",
 }
 plt.rcParams["axes.labelsize"] = 14  # Font size for axis labels
 plt.rcParams["xtick.labelsize"] = 14  # Font size for x-axis tick labels
@@ -414,7 +414,7 @@ class LeakageDetectionSystem:
             cusum / max(cusum),
             linestyle="dashed",
             label="CUSUM",
-            color="#A6CEE4",
+            color="#61CBF4",
             linewidth=2,
         )
         ax.axhline(
