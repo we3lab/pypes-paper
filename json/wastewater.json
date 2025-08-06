@@ -7,7 +7,7 @@
   "connections": [
     "WasteWaterIntake",
     "SettlerToOutput", 
-    "SludgeJointToOutput"
+    "SludgeJunctionToOutput"
   ],
   "virtual_tags": {
   },
@@ -17,31 +17,29 @@
     "input_contents": "UntreatedSewage",
     "output_contents": "TreatedSewage",
     "nodes": [
-      "IntakeJoint",
+      "IntakeJunction",
       "Anaerobic", 
       "Anoxic", 
-      "IntermediateJoint", 
+      "IntermediateJunction", 
       "Aerobic",
       "Settler",
-      "SludgeJoint"
+      "SludgeJunction"
     ],
     "connections":[
-      "AnaerobicToIntakeJoint",
+      "AnaerobicToIntakeJunction",
       "AnaerobicToAnoxic",
-      "AnoxicToIntermediateJoint",
-      "IntermediateJointToAerobic",
+      "AnoxicToIntermediateJunction",
+      "IntermediateJunctionToAerobic",
       "AerobicToSettler",
-      "SettlerToSludgeJoint",    
-      "SludgeJointToAnoxic", 
+      "SettlerToSludgeJunction",    
+      "SludgeJunctionToAnoxic", 
       "AerobicToAnoxic", 
-      "IntermediateJointToIntakeJoint"
+      "IntakeJunctionToIntermediateJunction"
     ],
     "tags": {}, 
-      "IntakeJoint": {
-      "type": "Reducer",
+    "IntakeJunction": {
+      "type": "Junction",
       "contents": "UntreatedSewage",
-      "inflow": ["WasteWaterIntake", "AnoxicToAnaerobic"], 
-      "outflow": "IntakeJoint", 
       "tags": {}
     }, 
     "Anaerobic": {
@@ -72,11 +70,11 @@
       },
       "tags": {}
     },
-    "IntermediateJoint": {
-      "type": "Reducer",
+    "IntermediateJunction": {
+      "type": "Junction",
       "contents": "UntreatedSewage",
       "inflow": ["AnoxicToIntermediate", "SludgeToAnoxic"],
-      "outflow": "IntermediateJoint",
+      "outflow": "IntermediateJunction",
       "tags": {}
     },
     "Aerobic": {
@@ -100,17 +98,15 @@
       "contents": ["UntreatedSewage"],
       "tags": {}
     },
-    "SludgeJoint": {
-      "type": "Splitter",
+    "SludgeJunction": {
+      "type": "Junction",
       "contents": ["UntreatedSewage", "SludgeBlend"],
-      "inflow": "SettlerToSludgeJoint", 
-      "outflow": ["SludgeJointToOutput", "SludgeJointToAnoxic"],
       "tags": {}
     },
-      "AnaerobicToIntakeJoint": {
+      "AnaerobicToIntakeJunction": {
       "type": "Pipe",
       "source": "Anaerobic",
-      "destination": "IntakeJoint",
+      "destination": "IntakeJunction",
       "contents": "UntreatedSewage",
       "tags": {}
     },
@@ -121,16 +117,16 @@
       "contents": "UntreatedSewage",
       "tags": {}
     },
-    "AnoxicToIntermediateJoint": {
+    "AnoxicToIntermediateJunction": {
       "type": "Pipe",
       "source": "Anoxic",
-      "destination": "IntermediateJoint",
+      "destination": "IntermediateJunction",
       "contents": "UntreatedSewage",
       "tags": {}
     },
-    "IntermediateJointToAerobic": {
+    "IntermediateJunctionToAerobic": {
       "type": "Pipe",
-      "source": "IntermediateJoint",
+      "source": "IntermediateJunction",
       "destination": "Aerobic",
       "contents": "UntreatedSewage",
       "tags": {}
@@ -142,16 +138,16 @@
       "contents": "UntreatedSewage",
       "tags": {}
     },
-    "SettlerToSludgeJoint": {
+    "SettlerToSludgeJunction": {
       "type": "Pipe",
       "source": "Settler",
-      "destination": "SludgeJoint",
+      "destination": "SludgeJunction",
       "contents": "SludgeBlend",
       "tags": {}
     },
-    "SludgeJointToAnoxic": {
+    "SludgeJunctionToAnoxic": {
       "type": "Pipe",
-      "source": "SludgeJoint",
+      "source": "SludgeJunction",
       "destination": "Anoxic",
       "contents": "UntreatedSewage",
       "tags": {}
@@ -163,10 +159,10 @@
       "contents": "UntreatedSewage",
       "tags": {}
     },
-    "IntermediateJointToIntakeJoint": {
+    "IntakeJunctionToIntermediateJunction": {
       "type": "Pipe",
-      "source": "IntermediateJoint",
-      "destination": "IntakeJoint",
+      "source": "IntakeJunction",
+      "destination": "IntermediateJunction",
       "contents": "UntreatedSewage",
       "tags": {}
     }
@@ -185,6 +181,7 @@
     "type": "Pipe",
     "source": "Input",
     "destination": "Facility",
+    "entry_point": "IntakeJunction",
     "contents": "UntreatedSewage",
     "tags": {}
   },
@@ -195,10 +192,11 @@
     "contents": "TreatedSewage",
     "tags": {}
   },
-  "SludgeJointToOutput": {
+  "SludgeJunctionToOutput": {
     "type": "Pipe",
     "source": "Facility",
     "destination": "Output",
+    "exit_point": "SludgeJunction",
     "contents": "UntreatedSewage",
     "tags": {}
   }

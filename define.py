@@ -39,18 +39,18 @@ RO_tag_mappping = {
 }
 
 RO_name_to_color = {
-    "Permeate conductivity (uS/cm)": "#A6CEE4",
-    "Brine flowrate (GPM)": "#B2E08A",
-    "Permeate flowrate (GPM)": "#A6CEE4",
-    "HP pump speed (Hz)": "#A6CEE4",
-    "HP pump pressure (PSI)": "#A6CEE4",
-    "Circulation pump speed (Hz)": "#B2E08A",
-    "Circulation pump pressure (PSI)": "#B2E08A",
+    "Permeate conductivity (uS/cm)": "#61CBF4",
+    "Brine flowrate (GPM)": "#92D050",
+    "Permeate flowrate (GPM)": "#61CBF4",
+    "HP pump speed (Hz)": "#61CBF4",
+    "HP pump pressure (PSI)": "#61CBF4",
+    "Circulation pump speed (Hz)": "#92D050",
+    "Circulation pump pressure (PSI)": "#92D050",
 }
 
 RO_item_to_color = {
-    "Permeate": "#A6CEE4",
-    "Brine": "#B2E08A",
-    "HP pump": "#A6CEE4",
-    "Circulation pump": "#B2E08A",
+    "Permeate": "#61CBF4",
+    "Brine": "#92D050",
+    "HP pump": "#61CBF4",
+    "Circulation pump": "#92D050",
 }

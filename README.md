@@ -58,7 +58,7 @@ The distribution system model comes from [Dataset of BattLeDIM: Battle of the Le
 ### Usage
 To convert an EPANet file:
 ```
-python epyt_utils.py
+python epyt_utils.py json/L-TOWN.inp json/distribution.json
 ```
 
 To run the leakage detection algorithm:
