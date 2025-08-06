@@ -614,7 +614,7 @@ class FaultDetectionSystem:
         if virtual_tags:
             scores_new = []
             for vt in self.virtual_tags:
-                scores_new.append(vt.process_ops(new_data, RO_tag_mappping))
+                scores_new.append(vt.process_custom_ops(new_data, RO_tag_mappping))
             scores_new = np.array(scores_new).T
             print(
                 f"Projected new data onto PCA model using VirtualTags: {scores_new.shape}"
@@ -741,7 +741,7 @@ class FaultDetectionSystem:
             virtual_tag = VirtualTag(
                 id=f"PC_{pc_index+1}",
                 tags=[self.network.get_tag(tag, recurse=True) for tag in tags],
-                operations=operations,
+                custom_operations=operations,
                 tag_type="PCA_Component",
                 parent_id="PC_Domain",
             )

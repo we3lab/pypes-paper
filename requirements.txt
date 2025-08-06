@@ -9,4 +9,4 @@ scikit_learn==1.6.1
 scipy==1.15.3
 tox==4.26.0
 tqdm==4.66.2
-pype-schema==0.7.1
+pype-schema==0.7.0
